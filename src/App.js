@@ -1,23 +1,205 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState, useEffect } from "react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { db } from "./firebase";
+import { ref, onValue, set } from "firebase/database";
+
+const defaultData = {
+  columns: {
+    todo: { id: "todo", title: "To Do", cardIds: ["card-1", "card-2"] },
+    inprogress: { id: "inprogress", title: "In Progress", cardIds: ["card-3"] },
+    done: { id: "done", title: "Done", cardIds: [] },
+  },
+  cards: {
+    "card-1": { id: "card-1", text: "Design the UI" },
+    "card-2": { id: "card-2", text: "Set up Firebase" },
+    "card-3": { id: "card-3", text: "Build card component" },
+  },
+  columnOrder: ["todo", "inprogress", "done"],
+};
+
+function fixData(raw) {
+  const fixed = { ...raw };
+  if (fixed.columnOrder && !Array.isArray(fixed.columnOrder)) {
+    fixed.columnOrder = Object.values(fixed.columnOrder);
+  }
+  if (fixed.columns) {
+    Object.keys(fixed.columns).forEach(colId => {
+      const col = fixed.columns[colId];
+      if (col.cardIds && !Array.isArray(col.cardIds)) {
+        col.cardIds = Object.values(col.cardIds);
+      } else if (!col.cardIds) {
+        col.cardIds = [];
+      }
+    });
+  }
+  return fixed;
+}
+
+function AddCardForm({ columnId, onAdd }) {
+  const [text, setText] = useState("");
+
+  function handleAdd() {
+    if (!text.trim()) return;
+    onAdd(columnId, text.trim());
+    setText("");
+  }
+
+  return (
+    <div style={{ marginTop: "8px" }}>
+      <input
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && handleAdd()}
+        placeholder="Add a card..."
+        style={{
+          width: "100%",
+          padding: "8px",
+          borderRadius: "6px",
+          border: "1px solid #ddd",
+          boxSizing: "border-box",
+          fontSize: "14px",
+        }}
+      />
+      <button
+        onClick={handleAdd}
+        style={{
+          marginTop: "6px",
+          width: "100%",
+          padding: "8px",
+          background: "#0052cc",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          fontSize: "14px",
+        }}
+      >
+        + Add Card
+      </button>
+    </div>
+  );
+}
 
 function App() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    const boardRef = ref(db, "board");
+    onValue(boardRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setData(fixData(snapshot.val()));
+      } else {
+        set(boardRef, defaultData);
+      }
+    });
+  }, []);
+
+  function onDragEnd(result) {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) return;
+
+    const sourceCol = data.columns[source.droppableId];
+    const destCol = data.columns[destination.droppableId];
+    const sourceCardIds = [...sourceCol.cardIds];
+    const destCardIds = sourceCol === destCol ? sourceCardIds : [...destCol.cardIds];
+
+    sourceCardIds.splice(source.index, 1);
+    destCardIds.splice(destination.index, 0, draggableId);
+
+    const newData = {
+      ...data,
+      columns: {
+        ...data.columns,
+        [sourceCol.id]: { ...sourceCol, cardIds: sourceCardIds },
+        [destCol.id]: { ...destCol, cardIds: destCardIds },
+      },
+    };
+
+    set(ref(db, "board"), newData);
+  }
+
+  function handleAddCard(columnId, text) {
+    const newCardId = "card-" + Date.now();
+    const newCard = { id: newCardId, text };
+    const column = data.columns[columnId];
+
+    const newData = {
+      ...data,
+      cards: {
+        ...data.cards,
+        [newCardId]: newCard,
+      },
+      columns: {
+        ...data.columns,
+        [columnId]: {
+          ...column,
+          cardIds: [...column.cardIds, newCardId],
+        },
+      },
+    };
+
+    set(ref(db, "board"), newData);
+  }
+
+  if (!data || !data.columnOrder) return <p style={{ padding: "30px" }}>Loading board...</p>;
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div style={{ padding: "30px" }}>
+      <h1>SyncBoard</h1>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div style={{ display: "flex", gap: "16px" }}>
+          {data.columnOrder.map(colId => {
+            const column = data.columns[colId];
+            const cards = column.cardIds.map(id => data.cards[id]);
+            return (
+              <Droppable droppableId={column.id} key={column.id}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    style={{
+                      background: "#f0f2f5",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      width: "250px",
+                      minHeight: "400px",
+                    }}
+                  >
+                    <h3 style={{ marginTop: 0 }}>{column.title}</h3>
+                    {cards.map((card, index) => (
+                      <Draggable key={card.id} draggableId={card.id} index={index}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            style={{
+                              background: "white",
+                              padding: "10px",
+                              marginBottom: "8px",
+                              borderRadius: "6px",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                              ...provided.draggableProps.style,
+                            }}
+                          >
+                            {card.text}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    <AddCardForm columnId={colId} onAdd={handleAddCard} />
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
+        </div>
+      </DragDropContext>
     </div>
   );
 }
