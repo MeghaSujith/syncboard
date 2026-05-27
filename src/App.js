@@ -35,6 +35,74 @@ function fixData(raw) {
   return fixed;
 }
 
+function Card({ card, onDelete, onEdit }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(card.text);
+
+  function handleEdit() {
+    if (text.trim() && text !== card.text) {
+      onEdit(card.id, text.trim());
+    }
+    setEditing(false);
+  }
+
+  return (
+    <div style={{
+      background: "white",
+      padding: "10px",
+      marginBottom: "8px",
+      borderRadius: "6px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "8px",
+    }}>
+      {editing ? (
+        <input
+          autoFocus
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onBlur={handleEdit}
+          onKeyDown={e => e.key === "Enter" && handleEdit()}
+          style={{
+            flex: 1,
+            border: "1px solid #0052cc",
+            borderRadius: "4px",
+            padding: "4px",
+            fontSize: "14px",
+          }}
+        />
+      ) : (
+        <span
+          onClick={() => setEditing(true)}
+          style={{ flex: 1, cursor: "pointer", fontSize: "14px" }}
+          title="Click to edit"
+        >
+          {card.text}
+        </span>
+      )}
+      <button
+        onClick={() => {
+          if (window.confirm("Delete this card?")) onDelete(card.id);
+        }}
+        style={{
+          background: "none",
+          border: "none",
+          color: "#999",
+          cursor: "pointer",
+          fontSize: "16px",
+          padding: "0 4px",
+          flexShrink: 0,
+        }}
+        title="Delete card"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function AddCardForm({ columnId, onAdd }) {
   const [text, setText] = useState("");
 
@@ -129,10 +197,7 @@ function App() {
 
     const newData = {
       ...data,
-      cards: {
-        ...data.cards,
-        [newCardId]: newCard,
-      },
+      cards: { ...data.cards, [newCardId]: newCard },
       columns: {
         ...data.columns,
         [columnId]: {
@@ -142,6 +207,33 @@ function App() {
       },
     };
 
+    set(ref(db, "board"), newData);
+  }
+
+  function handleDeleteCard(cardId) {
+    const newCards = { ...data.cards };
+    delete newCards[cardId];
+
+    const newColumns = {};
+    Object.keys(data.columns).forEach(colId => {
+      const col = data.columns[colId];
+      newColumns[colId] = {
+        ...col,
+        cardIds: col.cardIds.filter(id => id !== cardId),
+      };
+    });
+
+    set(ref(db, "board"), { ...data, cards: newCards, columns: newColumns });
+  }
+
+  function handleEditCard(cardId, newText) {
+    const newData = {
+      ...data,
+      cards: {
+        ...data.cards,
+        [cardId]: { ...data.cards[cardId], text: newText },
+      },
+    };
     set(ref(db, "board"), newData);
   }
 
@@ -177,16 +269,13 @@ function App() {
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            style={{
-                              background: "white",
-                              padding: "10px",
-                              marginBottom: "8px",
-                              borderRadius: "6px",
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                              ...provided.draggableProps.style,
-                            }}
+                            style={{ ...provided.draggableProps.style }}
                           >
-                            {card.text}
+                            <Card
+                              card={card}
+                              onDelete={handleDeleteCard}
+                              onEdit={handleEditCard}
+                            />
                           </div>
                         )}
                       </Draggable>
