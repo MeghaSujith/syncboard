@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { db } from "./firebase";
 import { ref, onValue, set } from "firebase/database";
+import Auth from "./Auth";
 
 const defaultData = {
   columns: {
@@ -150,6 +151,19 @@ function AddCardForm({ columnId, onAdd }) {
 
 function App() {
   const [data, setData] = useState(null);
+  const [user, setUser] = useState(localStorage.getItem("email"));
+
+  function handleLogin(email) {
+    setUser(email);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("email");
+    setUser(null);
+  }
+
+  //if (!user) return <Auth onLogin={handleLogin} />;
 
   useEffect(() => {
     const boardRef = ref(db, "board");
@@ -237,11 +251,31 @@ function App() {
     set(ref(db, "board"), newData);
   }
 
+  if (!user) return <Auth onLogin={handleLogin} />;
   if (!data || !data.columnOrder) return <p style={{ padding: "30px" }}>Loading board...</p>;
 
   return (
     <div style={{ padding: "30px" }}>
-      <h1>SyncBoard</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <h1 style={{ margin: 0 }}>SyncBoard</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <span style={{ fontSize: "14px", color: "#666" }}>👤 {user}</span>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: "8px 16px",
+              background: "#ff5630",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
       <DragDropContext onDragEnd={onDragEnd}>
         <div style={{ display: "flex", gap: "16px" }}>
           {data.columnOrder.map(colId => {
@@ -262,7 +296,17 @@ function App() {
                     }}
                   >
                     <h3 style={{ marginTop: 0 }}>{column.title}</h3>
-                    {cards.map((card, index) => (
+{cards.length === 0 && (
+  <p style={{
+    textAlign: "center",
+    color: "#aaa",
+    fontSize: "13px",
+    marginTop: "20px",
+  }}>
+    No cards yet — add one!
+  </p>
+)}
+{cards.map((card, index) => (
                       <Draggable key={card.id} draggableId={card.id} index={index}>
                         {(provided) => (
                           <div
@@ -294,3 +338,4 @@ function App() {
 }
 
 export default App;
+
