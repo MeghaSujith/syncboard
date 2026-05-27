@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { auth } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 
-function Auth({ onLogin }) {
+function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,38 +14,31 @@ function Auth({ onLogin }) {
       setError("Please enter email and password");
       return;
     }
-
     setLoading(true);
     setError("");
 
-    const endpoint = isLogin ? "login" : "register";
-
     try {
-      const response = await fetch(`http://localhost:5000/auth/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Something went wrong");
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged in App.js handles the rest automatically
       } else {
-        if (isLogin) {
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("email", data.email);
-          onLogin(data.email);
-        } else {
-          setError("");
-          setIsLogin(true);
-          alert("Registered successfully! Please login.");
-        }
+        await createUserWithEmailAndPassword(auth, email, password);
+        // after register, Firebase logs them in automatically too
       }
     } catch (err) {
-      setError("Cannot connect to server. Is the backend running?");
+      // Firebase error messages are a bit technical, so we simplify them
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+        setError("Invalid email or password");
+      } else if (err.code === "auth/email-already-in-use") {
+        setError("An account with this email already exists");
+      } else if (err.code === "auth/weak-password") {
+        setError("Password should be at least 6 characters");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address");
+      } else {
+        setError(err.message);
+      }
     }
-
     setLoading(false);
   }
 
@@ -65,7 +60,6 @@ function Auth({ onLogin }) {
         <h2 style={{ marginTop: 0, marginBottom: "24px", textAlign: "center" }}>
           {isLogin ? "Login to SyncBoard" : "Create Account"}
         </h2>
-
         <input
           type="email"
           placeholder="Email"
@@ -81,7 +75,6 @@ function Auth({ onLogin }) {
             fontSize: "14px",
           }}
         />
-
         <input
           type="password"
           placeholder="Password"
@@ -98,13 +91,11 @@ function Auth({ onLogin }) {
             fontSize: "14px",
           }}
         />
-
         {error && (
           <p style={{ color: "red", fontSize: "13px", marginBottom: "12px" }}>
             {error}
           </p>
         )}
-
         <button
           onClick={handleSubmit}
           disabled={loading}
@@ -122,7 +113,6 @@ function Auth({ onLogin }) {
         >
           {loading ? "Please wait..." : isLogin ? "Login" : "Register"}
         </button>
-
         <p style={{ textAlign: "center", fontSize: "13px", color: "#666" }}>
           {isLogin ? "Don't have an account? " : "Already have an account? "}
           <span
@@ -138,4 +128,3 @@ function Auth({ onLogin }) {
 }
 
 export default Auth;
-

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { db } from "./firebase";
+import { auth } from "./firebase";
 import { ref, onValue, set } from "firebase/database";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import Auth from "./Auth";
 import CardDetail from "./CardDetail";
 
@@ -167,29 +169,35 @@ function AddCardForm({ columnId, onAdd }) {
 
 function App() {
   const [data, setData] = useState(null);
-  const [user, setUser] = useState(localStorage.getItem("email"));
+  const [user, setUser] = useState(null);           // ← now holds Firebase user object
+  const [authLoading, setAuthLoading] = useState(true); // ← prevents flicker on load
   const [selectedCard, setSelectedCard] = useState(null);
 
-  function handleLogin(email) {
-    setUser(email);
-  }
+  // ── Firebase Auth listener ──────────────────────────────────────────────────
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);   // null if logged out, user object if logged in
+      setAuthLoading(false);
+    });
+    return () => unsubscribe(); // clean up on unmount
+  }, []);
 
-  function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("email");
-    setUser(null);
-  }
-
+  // ── Firebase Realtime Database listener ────────────────────────────────────
   useEffect(() => {
     const boardRef = ref(db, "board");
-    onValue(boardRef, (snapshot) => {
+    const unsubscribe = onValue(boardRef, (snapshot) => {
       if (snapshot.exists()) {
         setData(fixData(snapshot.val()));
       } else {
         set(boardRef, defaultData);
       }
     });
+    return () => unsubscribe();
   }, []);
+
+  function handleLogout() {
+    signOut(auth); // ← Firebase Auth sign out; onAuthStateChanged sets user to null automatically
+  }
 
   function onDragEnd(result) {
     const { destination, source, draggableId } = result;
@@ -277,7 +285,9 @@ function App() {
     set(ref(db, "board"), newData);
   }
 
-  if (!user) return <Auth onLogin={handleLogin} />;
+  // ── Render guards ───────────────────────────────────────────────────────────
+  if (authLoading) return <p style={{ padding: "30px" }}>Loading...</p>;
+  if (!user) return <Auth />;   // ← no onLogin prop needed anymore
   if (!data || !data.columnOrder) return <p style={{ padding: "30px" }}>Loading board...</p>;
 
   return (
@@ -292,7 +302,7 @@ function App() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <h1 style={{ margin: 0 }}>SyncBoard</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "14px", color: "#666" }}>👤 {user}</span>
+          <span style={{ fontSize: "14px", color: "#666" }}>👤 {user.email}</span>  {/* ← user.email from Firebase */}
           <button
             onClick={handleLogout}
             style={{
@@ -371,5 +381,4 @@ function App() {
   );
 }
 
-export default App;
-
+export default App; 
