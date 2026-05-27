@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { db } from "./firebase";
 import { ref, onValue, set } from "firebase/database";
 import Auth from "./Auth";
+import CardDetail from "./CardDetail";
 
 const defaultData = {
   columns: {
@@ -36,7 +37,7 @@ function fixData(raw) {
   return fixed;
 }
 
-function Card({ card, onDelete, onEdit }) {
+function Card({ card, onDelete, onEdit, onOpen }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(card.text);
 
@@ -83,6 +84,21 @@ function Card({ card, onDelete, onEdit }) {
           {card.text}
         </span>
       )}
+      <button
+        onClick={(e) => { e.stopPropagation(); onOpen(card); }}
+        style={{
+          background: "none",
+          border: "none",
+          color: "#0052cc",
+          cursor: "pointer",
+          fontSize: "14px",
+          padding: "0 4px",
+          flexShrink: 0,
+        }}
+        title="View details"
+      >
+        ⓘ
+      </button>
       <button
         onClick={() => {
           if (window.confirm("Delete this card?")) onDelete(card.id);
@@ -152,6 +168,7 @@ function AddCardForm({ columnId, onAdd }) {
 function App() {
   const [data, setData] = useState(null);
   const [user, setUser] = useState(localStorage.getItem("email"));
+  const [selectedCard, setSelectedCard] = useState(null);
 
   function handleLogin(email) {
     setUser(email);
@@ -162,8 +179,6 @@ function App() {
     localStorage.removeItem("email");
     setUser(null);
   }
-
-  //if (!user) return <Auth onLogin={handleLogin} />;
 
   useEffect(() => {
     const boardRef = ref(db, "board");
@@ -251,11 +266,29 @@ function App() {
     set(ref(db, "board"), newData);
   }
 
+  function handleUpdateCard(cardId, updates) {
+    const newData = {
+      ...data,
+      cards: {
+        ...data.cards,
+        [cardId]: { ...data.cards[cardId], ...updates },
+      },
+    };
+    set(ref(db, "board"), newData);
+  }
+
   if (!user) return <Auth onLogin={handleLogin} />;
   if (!data || !data.columnOrder) return <p style={{ padding: "30px" }}>Loading board...</p>;
 
   return (
     <div style={{ padding: "30px" }}>
+      {selectedCard && (
+        <CardDetail
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+          onUpdate={handleUpdateCard}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <h1 style={{ margin: 0 }}>SyncBoard</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -296,17 +329,17 @@ function App() {
                     }}
                   >
                     <h3 style={{ marginTop: 0 }}>{column.title}</h3>
-{cards.length === 0 && (
-  <p style={{
-    textAlign: "center",
-    color: "#aaa",
-    fontSize: "13px",
-    marginTop: "20px",
-  }}>
-    No cards yet — add one!
-  </p>
-)}
-{cards.map((card, index) => (
+                    {cards.length === 0 && (
+                      <p style={{
+                        textAlign: "center",
+                        color: "#aaa",
+                        fontSize: "13px",
+                        marginTop: "20px",
+                      }}>
+                        No cards yet — add one!
+                      </p>
+                    )}
+                    {cards.map((card, index) => (
                       <Draggable key={card.id} draggableId={card.id} index={index}>
                         {(provided) => (
                           <div
@@ -319,6 +352,7 @@ function App() {
                               card={card}
                               onDelete={handleDeleteCard}
                               onEdit={handleEditCard}
+                              onOpen={setSelectedCard}
                             />
                           </div>
                         )}
