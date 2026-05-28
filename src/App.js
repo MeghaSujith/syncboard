@@ -6,6 +6,7 @@ import { ref, onValue, set } from "firebase/database";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import Auth from "./Auth";
 import CardDetail from "./CardDetail";
+import Presence from "./Presence";
 
 const defaultData = {
   columns: {
@@ -307,7 +308,8 @@ function App() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <h1 style={{ margin: 0 }}>SyncBoard</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "14px", color: "#666" }}>👤 {user.email}</span>
+  <Presence user={user} />
+  <span style={{ fontSize: "14px", color: "#666" }}>👤 {user.email}</span>
           <button
             onClick={handleLogout}
             style={{
