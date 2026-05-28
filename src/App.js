@@ -59,7 +59,7 @@ function Card({ card, onDelete, onEdit, onOpen }) {
       boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
       display: "flex",
       justifyContent: "space-between",
-      alignItems: "center",
+      alignItems: "flex-start",
       gap: "8px",
     }}>
       {editing ? (
@@ -78,13 +78,21 @@ function Card({ card, onDelete, onEdit, onOpen }) {
           }}
         />
       ) : (
-        <span
-          onClick={() => setEditing(true)}
-          style={{ flex: 1, cursor: "pointer", fontSize: "14px" }}
-          title="Click to edit"
-        >
-          {card.text}
-        </span>
+        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setEditing(true)}>
+          <span style={{ fontSize: "14px" }} title="Click to edit">
+            {card.text}
+          </span>
+          {card.dueDate && (
+            <div style={{ fontSize: "11px", color: "#666", marginTop: "4px" }}>
+              📅 {card.dueDate}
+            </div>
+          )}
+          {card.assignee && (
+            <div style={{ fontSize: "11px", color: "#0052cc", marginTop: "2px" }}>
+              👤 {card.assignee}
+            </div>
+          )}
+        </div>
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onOpen(card); }}
@@ -169,20 +177,18 @@ function AddCardForm({ columnId, onAdd }) {
 
 function App() {
   const [data, setData] = useState(null);
-  const [user, setUser] = useState(null);           // ← now holds Firebase user object
-  const [authLoading, setAuthLoading] = useState(true); // ← prevents flicker on load
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState(null);
 
-  // ── Firebase Auth listener ──────────────────────────────────────────────────
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);   // null if logged out, user object if logged in
+      setUser(firebaseUser);
       setAuthLoading(false);
     });
-    return () => unsubscribe(); // clean up on unmount
+    return () => unsubscribe();
   }, []);
 
-  // ── Firebase Realtime Database listener ────────────────────────────────────
   useEffect(() => {
     const boardRef = ref(db, "board");
     const unsubscribe = onValue(boardRef, (snapshot) => {
@@ -196,7 +202,7 @@ function App() {
   }, []);
 
   function handleLogout() {
-    signOut(auth); // ← Firebase Auth sign out; onAuthStateChanged sets user to null automatically
+    signOut(auth);
   }
 
   function onDragEnd(result) {
@@ -285,9 +291,8 @@ function App() {
     set(ref(db, "board"), newData);
   }
 
-  // ── Render guards ───────────────────────────────────────────────────────────
   if (authLoading) return <p style={{ padding: "30px" }}>Loading...</p>;
-  if (!user) return <Auth />;   // ← no onLogin prop needed anymore
+  if (!user) return <Auth />;
   if (!data || !data.columnOrder) return <p style={{ padding: "30px" }}>Loading board...</p>;
 
   return (
@@ -302,7 +307,7 @@ function App() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <h1 style={{ margin: 0 }}>SyncBoard</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "14px", color: "#666" }}>👤 {user.email}</span>  {/* ← user.email from Firebase */}
+          <span style={{ fontSize: "14px", color: "#666" }}>👤 {user.email}</span>
           <button
             onClick={handleLogout}
             style={{
@@ -381,4 +386,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
