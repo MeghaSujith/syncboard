@@ -15,14 +15,14 @@ function getColor(email) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function Presence({ user }) {
+function Presence({ user, boardId }) {
   const [activeUsers, setActiveUsers] = useState({});
 
   useEffect(() => {
     if (!user) return;
 
-    const userPresenceRef = ref(db, `presence/${user.uid}`);
-    const allPresenceRef = ref(db, "presence");
+   const userPresenceRef = ref(db, `presence/${boardId}/${user.uid}`);
+const allPresenceRef = ref(db, `presence/${boardId}`);
 
     // Set this user as online
     set(userPresenceRef, {
@@ -47,7 +47,7 @@ function Presence({ user }) {
       unsubscribe();
       // Don't remove presence here — onDisconnect handles it
     };
-  }, [user]);
+  }, [user, boardId]);
 
   const users = Object.values(activeUsers);
   if (users.length === 0) return null;
