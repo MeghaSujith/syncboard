@@ -7,6 +7,7 @@ function Boards({ user, onSelectBoard, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [newBoardName, setNewBoardName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [sendingDigest, setSendingDigest] = useState(false);
 
   useEffect(() => {
     const userEmail = user.email.replace(/\./g, ",");
@@ -60,6 +61,23 @@ function Boards({ user, onSelectBoard, onLogout }) {
     setCreating(false);
   }
 
+  async function handleSendDigest() {
+    setSendingDigest(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      alert(data.message || "Digest sent!");
+    } catch (err) {
+      alert("Failed to send digest. Is the backend running?");
+    } finally {
+      setSendingDigest(false);
+    }
+  }
+
   if (loading) return <p style={{ padding: "30px" }}>Loading your boards...</p>;
 
   return (
@@ -72,6 +90,20 @@ function Boards({ user, onSelectBoard, onLogout }) {
         <h1 style={{ margin: 0, color: "white", fontSize: "22px" }}>SyncBoard</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ color: "white", fontSize: "14px" }}>👤 {user.email}</span>
+          <button
+            onClick={handleSendDigest}
+            disabled={sendingDigest}
+            style={{
+              padding: "8px 16px",
+              background: sendingDigest ? "#999" : "#6554c0",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: sendingDigest ? "not-allowed" : "pointer",
+              fontSize: "14px"
+            }}>
+            {sendingDigest ? "Sending..." : "📧 Send Digest"}
+          </button>
           <button onClick={onLogout}
             style={{ padding: "8px 16px", background: "#ff5630", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "14px" }}>
             Logout
