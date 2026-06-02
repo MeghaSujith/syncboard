@@ -73,12 +73,15 @@ function getPriority(card) {
 
 // ─── Internal Components ──────────────────────────────────────────────────────
 
-function CardItem({ card, onDelete, onEdit, onOpen, index, colColor }) {
+function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
   const [hovered, setHovered] = useState(false);
   const priority = getPriority(card);
   const pc = PRIORITY_CONFIG[priority];
   const labels = card.labels || [];
-  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date() && !card.done;
+  
+  // ---> NEW FIXED DATE LOGIC <---
+  const isDone = colId === "done";
+  const isOverdue = !isDone && card.dueDate && new Date(card.dueDate) < new Date();
 
   return (
     <Draggable draggableId={card.id} index={index}>
@@ -120,11 +123,19 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor }) {
               )}
               <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.5, marginBottom: 14, paddingRight: 24 }}>{card.text}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                
+                {/* ---> UPDATED DUE DATE BADGE <--- */}
                 {card.dueDate && (
-                  <span style={{ fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: isOverdue ? "#fee2e2" : "#f1f5f9", color: isOverdue ? "#b91c1c" : "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
-                    {isOverdue ? "⚠️" : "📅"} {card.dueDate}
+                  <span style={{ 
+                    fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6, 
+                    background: isDone ? "#dcfce7" : isOverdue ? "#fee2e2" : "#f1f5f9", 
+                    color: isDone ? "#15803d" : isOverdue ? "#b91c1c" : "#64748b", 
+                    display: "flex", alignItems: "center", gap: 4 
+                  }}>
+                    {isDone ? "✅" : isOverdue ? "⚠️" : "📅"} {card.dueDate}
                   </span>
                 )}
+
                 {card.assignee && (
                   <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
                     <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "white" }}>
@@ -640,6 +651,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                               card={card}
                               index={index}
                               colColor={cc}
+                              colId={colId}
                               onDelete={handleDeleteCard}
                               onEdit={handleEditCard}
                               onOpen={setSelectedCard}

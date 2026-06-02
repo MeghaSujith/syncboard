@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
-import { ref, onValue, set } from "firebase/database";
+// ADDED 'remove' here for the delete functionality
+import { ref, onValue, set, remove } from "firebase/database";
 
 const BOARD_GRADIENTS = [
   "linear-gradient(135deg, #0d9488, #0ea5e9)",
@@ -212,7 +213,6 @@ function StatPopover({ type, boards, userEmail }) {
       overflowY: "auto",
       animation: "popoverIn 0.18s ease",
     }}>
-      {/* arrow - Fixed duplicate transform warning */}
       <div style={{
         position: "absolute", top: -6, left: "50%", 
         width: 12, height: 12, background: "white",
@@ -227,16 +227,18 @@ function StatPopover({ type, boards, userEmail }) {
 export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   const [boards, setBoards] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [newBoardName, setNewBoardName] = useState("");
+  const [newBoardDeadline, setNewBoardDeadline] = useState(""); // NEW: Deadline State
+  
   const [creating, setCreating] = useState(false);
-  const [sendingDigest, setSendingDigest] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredStat, setHoveredStat] = useState(null);
+  
   const hoverTimeoutRef = useRef(null);
   const inputRef = useRef(null);
 
-  // ---> DYNAMIC TEAM LEAD CHECK (Using safe userRole prop) <---
   const isTeamLead = userRole === "team_lead";
 
   useEffect(() => {
@@ -273,39 +275,37 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   }, [user]);
 
   function handleCreateBoard() {
-    if (!newBoardName.trim()) return;
+    if (!newBoardName.trim() || !newBoardDeadline) {
+      alert("Please enter both a project name and a deadline.");
+      return;
+    }
     setCreating(true);
     const newBoardId = user.uid + "_" + Date.now();
     const userEmail = user.email.replace(/\./g, ",");
     set(ref(db, `boards/${newBoardId}/info`), {
       name: newBoardName.trim(),
       owner: user.email,
+      dueDate: newBoardDeadline, // NEW: Saving deadline to database
       members: [user.email],
       createdAt: Date.now(),
     });
     set(ref(db, `userBoards/${userEmail}/${newBoardId}`), true);
     setNewBoardName("");
+    setNewBoardDeadline("");
     setCreating(false);
     setShowCreate(false);
   }
 
-  async function handleSendDigest() {
-    setSendingDigest(true);
-    try {
-      const res = await fetch("http://localhost:5000/api/digest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      alert(data.message || "Digest sent!");
-    } catch {
-      alert("Failed to send digest. Is the backend running?");
-    } finally {
-      setSendingDigest(false);
+  // NEW: Delete Board Logic
+  function handleDeleteBoard(e, boardId, boardName) {
+    e.stopPropagation(); // Prevents you from navigating to the board when clicking trash
+    if (window.confirm(`⚠️ Are you sure you want to completely delete the project "${boardName}"?`)) {
+      remove(ref(db, `boards/${boardId}`));
+      const userEmailKey = user.email.replace(/\./g, ",");
+      remove(ref(db, `userBoards/${userEmailKey}/${boardId}`));
+      setBoards(prev => prev.filter(b => b.id !== boardId));
     }
   }
-
   function handleStatMouseEnter(type) {
     clearTimeout(hoverTimeoutRef.current);
     setHoveredStat(type);
@@ -313,6 +313,13 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   function handleStatMouseLeave() {
     hoverTimeoutRef.current = setTimeout(() => setHoveredStat(null), 120);
   }
+
+  // NEW: Sort boards by deadline
+  const sortedBoards = [...boards].sort((a, b) => {
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return new Date(a.dueDate) - new Date(b.dueDate);
+  });
 
   const styles = `
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -558,12 +565,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
             <div className="avatar">{getInitials(user.email)}</div>
             <span className="user-email">{user.email}</span>
             
-            {/* THIS BUTTON IS STRICTLY HIDDEN FROM MEMBERS */}
-            {isTeamLead && (
-              <button className="btn btn-ghost" onClick={handleSendDigest} disabled={sendingDigest}>
-                {sendingDigest ? "Sending…" : "📧 Send Digest"}
-              </button>
-            )}
+            {/* Removed the global Digest button from here entirely! */}
             
             <button className="btn btn-danger" onClick={onLogout}>Sign out</button>
           </div>
@@ -576,7 +578,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
               <h2>Welcome back, {user.displayName || user.email.split("@")[0]} 👋</h2>
               <p>You have {boards.length} board{boards.length !== 1 ? "s" : ""} — pick up where you left off.</p>
             </div>
-            {/* HIDE NEW BOARD BUTTON FROM MEMBERS */}
             {isTeamLead && (
               <button className="hero-btn" onClick={() => setShowCreate(s => !s)}>
                 <span style={{ fontSize: "18px", lineHeight: 1 }}>+</span> New Board
@@ -584,9 +585,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
             )}
           </div>
 
-          {/* ─── Stats Row ─────────────────────────── */}
           <div className="stats-row">
-
             <div
               className="stat-card"
               onMouseEnter={() => handleStatMouseEnter("boards")}
@@ -634,11 +633,8 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                 <StatPopover type="active" boards={boards} userEmail={user.email} />
               )}
             </div>
-
           </div>
-          {/* ─────────────────────────────────────────────────────────────── */}
 
-          {/* HIDE CREATE PANEL ENTIRELY FROM MEMBERS */}
           {isTeamLead && (
             <div className="create-panel">
               <div className="create-header" onClick={() => setShowCreate(s => !s)}>
@@ -661,7 +657,17 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                     onKeyDown={e => e.key === "Enter" && handleCreateBoard()}
                     placeholder="e.g. Q3 Product Roadmap"
                   />
-                  <button className="btn btn-teal" onClick={handleCreateBoard} disabled={creating || !newBoardName.trim()}>
+                  
+                  {/* NEW: Date Picker for Deadline */}
+                  <input
+                    type="date"
+                    className="create-input"
+                    style={{ flex: "0 0 150px" }}
+                    value={newBoardDeadline}
+                    onChange={e => setNewBoardDeadline(e.target.value)}
+                  />
+
+                  <button className="btn btn-teal" onClick={handleCreateBoard} disabled={creating || !newBoardName.trim() || !newBoardDeadline}>
                     {creating ? "Creating…" : "Create"}
                   </button>
                 </div>
@@ -673,16 +679,36 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
             <div className="empty">
               <div className="empty-icon">🗂️</div>
               <h3>No boards yet</h3>
-              {/* UPDATE EMPTY STATE MESSAGE FOR MEMBERS */}
               <p>{isTeamLead ? "Create your first board above to get started." : "You haven't been added to any boards yet."}</p>
             </div>
           ) : (
             <>
               <div className="section-label">All boards — {boards.length}</div>
               <div className="boards-grid">
-                {boards.map((board, i) => {
+                
+                {/* NEW: Iterating over sortedBoards so urgent projects are first */}
+                {sortedBoards.map((board, i) => {
                   const gradient = getBoardGradient(board.id);
                   const firstLetter = (board.name || "U")[0].toUpperCase();
+
+                  // NEW: Deadline Alarm Logic
+                  let daysLeft = null;
+                  let badgeStyle = { bg: "#f1f5f9", text: "#64748b", icon: "📅", label: board.dueDate || "No deadline" };
+                  
+                  if (board.dueDate) {
+                    const due = new Date(board.dueDate);
+                    const today = new Date();
+                    daysLeft = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysLeft < 0) {
+                      badgeStyle = { bg: "#fee2e2", text: "#b91c1c", icon: "🔥", label: `Overdue by ${Math.abs(daysLeft)}d` };
+                    } else if (daysLeft <= 2) {
+                      badgeStyle = { bg: "#fef3c7", text: "#b45309", icon: "⚠️", label: `Due in ${daysLeft}d` };
+                    } else {
+                      badgeStyle = { bg: "#dcfce7", text: "#15803d", icon: "✅", label: `${daysLeft}d left` };
+                    }
+                  }
+
                   return (
                     <div
                       key={board.id}
@@ -691,6 +717,25 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                       onClick={() => onSelectBoard(board.id)}
                     >
                       <div className="board-card-banner" style={{ background: gradient }}>
+                        
+                        {/* NEW: Trash Can for Team Leads */}
+                        {isTeamLead && (
+                          <button 
+                            onClick={(e) => handleDeleteBoard(e, board.id, board.name)}
+                            style={{ 
+                              position: 'absolute', top: 12, left: 12, 
+                              background: 'rgba(0,0,0,0.3)', border: 'none', borderRadius: 6, color: 'white', 
+                              padding: '4px 8px', cursor: 'pointer', zIndex: 10, fontSize: 12, backdropFilter: 'blur(4px)',
+                              transition: '0.2s'
+                            }}
+                            title="Delete Board"
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.9)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.3)'}
+                          >
+                            🗑️
+                          </button>
+                        )}
+
                         <span className="board-card-banner-letter">{firstLetter}</span>
                         <span className="board-name-badge">Board</span>
                       </div>
@@ -701,6 +746,12 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                           <span className="meta-dot" />
                           <span>{board.owner === user.email ? "Owned by you" : board.owner}</span>
                         </div>
+
+                        {/* NEW: Display the Deadline Badge inside the card */}
+                        <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: badgeStyle.bg, color: badgeStyle.text }}>
+                          {badgeStyle.icon} {badgeStyle.label}
+                        </div>
+
                       </div>
                       <div className="board-card-footer">
                         <div style={{ display: "flex", alignItems: "center" }}>
