@@ -293,18 +293,16 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [showChat, setShowChat] = useState(false); 
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showInvite, setShowInvite]   = useState(false);
-  
-  // NEW STATE ADDED HERE
   const [sendingDigest, setSendingDigest] = useState(false);
-  
   const [activities, setActivities]   = useState([]);
+  
+  // ALERTS STATE
   const [notifications, setNotifications] = useState([]);
   const [search, setSearch]           = useState("");
   const [filterLabel, setFilterLabel] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
 
-  // THIS IS THE REAL FUNCTION THAT CALLS YOUR SERVER
   const handleSendDigest = async () => {
     if (!boardId) return;
     setSendingDigest(true);
@@ -329,6 +327,23 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   };
 
   useEffect(() => { const t = setTimeout(() => setMounted(true), 60); return () => clearTimeout(t); }, []);
+
+  // NEW FIREBASE NOTIFICATION LISTENER
+  useEffect(() => {
+    if (!user || !user.email) return;
+    const userEmailKey = user.email.replace(/\./g, ",");
+    const notifRef = ref(db, `userNotifications/${userEmailKey}`);
+    
+    const unsubscribe = onValue(notifRef, snap => {
+      if (snap.exists()) {
+        const notifs = Object.values(snap.val()).sort((a,b) => a.timestamp - b.timestamp);
+        setNotifications(notifs);
+      } else {
+        setNotifications([]);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   useEffect(() => {
     const boardRef = ref(db, `boards/${boardId}/data`);
@@ -360,8 +375,15 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     push(ref(db, `boards/${boardId}/activity`), { user: user.email, action, timestamp: Date.now() });
   }
 
+  // UPDATED ADD NOTIFICATION (Pushes to Firebase)
   function addNotification(message) {
-    setNotifications(prev => [...prev, { message, timestamp: Date.now(), read: false }]);
+    if (!user || !user.email) return;
+    const userEmailKey = user.email.replace(/\./g, ",");
+    push(ref(db, `userNotifications/${userEmailKey}`), { 
+      message, 
+      timestamp: Date.now(), 
+      read: false 
+    });
   }
 
   function onDragEnd(result) {
@@ -481,7 +503,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       `}</style>
 
-      {/* ---> NEW: DYNAMIC FLEX WRAPPER FOR SIDE-BY-SIDE LAYOUT <--- */}
       <div 
         className={`board-root${mounted ? " mounted" : ""}`} 
         style={{ 
@@ -497,24 +518,15 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         )}
 
         <nav style={{
-          background: "#0f172a", 
-          borderBottom: "1px solid #1e293b", 
-          padding: "16px 32px", 
-          minHeight: 72,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap", gap: 16,
+          background: "#0f172a", borderBottom: "1px solid #1e293b", padding: "16px 32px", minHeight: 72,
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
           position: "sticky", top: 0, zIndex: 100,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
             <button onClick={onBack} style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "8px 14px", background: "#1e293b", border: "none",
-              borderRadius: 8, cursor: "pointer", fontSize: 15, color: "#e2e8f0", fontFamily: "inherit", fontWeight: 600,
-              transition: "0.2s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#334155"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#1e293b"; }}
-            >
+              display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#1e293b", border: "none",
+              borderRadius: 8, cursor: "pointer", fontSize: 15, color: "#e2e8f0", fontFamily: "inherit", fontWeight: 600, transition: "0.2s",
+            }} onMouseEnter={e => { e.currentTarget.style.background = "#334155"; }} onMouseLeave={e => { e.currentTarget.style.background = "#1e293b"; }}>
               ← My Boards
             </button>
             <div style={{ width: 1, height: 28, background: "#334155" }} />
@@ -532,74 +544,55 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                <Presence user={user} boardId={boardId} />
             </div>
 
-            {/* ---> FIXED BUTTON USING handleSendDigest <--- */}
             {isTeamLead && (
-              <button 
-                onClick={handleSendDigest} 
-                disabled={sendingDigest}
-                style={{
+              <button onClick={handleSendDigest} disabled={sendingDigest} style={{
                   padding: "8px 16px", background: sendingDigest ? "#6366f1" : "#4f46e5", color: "white", border: "none",
                   borderRadius: 8, cursor: sendingDigest ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
                   display: "flex", alignItems: "center", gap: 6, transition: "0.2s", boxShadow: "0 4px 6px rgba(79, 70, 229, 0.3)"
-                }} 
-                onMouseEnter={e => { if(!sendingDigest) e.currentTarget.style.background = "#4338ca" }} 
-                onMouseLeave={e => { if(!sendingDigest) e.currentTarget.style.background = "#4f46e5" }}
-              >
+                }} onMouseEnter={e => { if(!sendingDigest) e.currentTarget.style.background = "#4338ca" }} onMouseLeave={e => { if(!sendingDigest) e.currentTarget.style.background = "#4f46e5" }}>
                 {sendingDigest ? "⏳ Sending..." : "📧 Team Lead Digest"}
               </button>
             )}
 
             <button onClick={() => setShowAnalytics(true)} style={{
-              padding: "8px 16px", background: "#1e293b", color: "#e2e8f0", border: "none",
-              borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
-              display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
+              padding: "8px 16px", background: "#1e293b", color: "#e2e8f0", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
             }} onMouseEnter={e => e.currentTarget.style.background = "#334155"} onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}>
               📊 Analytics
             </button>
 
             <button onClick={() => { setShowChat(s => !s); setShowActivity(false); }} style={{
-              padding: "8px 16px",
-              background: showChat ? "#0d9488" : "#1e293b",
-              color: showChat ? "white" : "#e2e8f0",
-              border: "none",
-              borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
-              display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
+              padding: "8px 16px", background: showChat ? "#0d9488" : "#1e293b", color: showChat ? "white" : "#e2e8f0", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
             }}>
               💬 Team Chat
             </button>
 
             <button onClick={() => { setShowActivity(s => !s); setShowChat(false); }} style={{
-              padding: "8px 16px",
-              background: showActivity ? "#0d9488" : "#1e293b",
-              color: showActivity ? "white" : "#e2e8f0",
-              border: "none",
-              borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
-              display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
+              padding: "8px 16px", background: showActivity ? "#0d9488" : "#1e293b", color: showActivity ? "white" : "#e2e8f0", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
             }}>
               📋 Activity
             </button>
 
-            <NotificationBell notifications={notifications} onClear={() => setNotifications([])} />
+            {/* UPDATED NOTIFICATION CLEAR LOGIC */}
+            <NotificationBell notifications={notifications} onClear={() => {
+                const userEmailKey = user.email.replace(/\./g, ",");
+                set(ref(db, `userNotifications/${userEmailKey}`), null);
+            }} />
 
             <button onClick={() => setShowInvite(true)} style={{
-              padding: "8px 16px", background: ACCENT, color: "white", border: "none",
-              borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit",
-              display: "flex", alignItems: "center", gap: 6, marginLeft: 8, boxShadow: "0 4px 6px rgba(13, 148, 136, 0.3)"
+              padding: "8px 16px", background: ACCENT, color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, marginLeft: 8, boxShadow: "0 4px 6px rgba(13, 148, 136, 0.3)"
             }}>
               + Invite
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginLeft: 8, background: "#0ea5e9", borderRadius: 24, whiteSpace: "nowrap" }}>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0ea5e9" }}>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {user.email[0].toUpperCase()}
               </div>
               <span style={{ fontSize: 14, color: "white", fontWeight: 600 }}>{user.email.split("@")[0]}</span>
             </div>
 
             <button onClick={onLogout} style={{
-              padding: "8px 16px", background: "transparent", color: "#ef4444",
-              border: "1px solid #7f1d1d", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
-              transition: "0.2s"
+              padding: "8px 16px", background: "transparent", color: "#ef4444", border: "1px solid #7f1d1d", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", transition: "0.2s"
             }} onMouseEnter={e => {e.currentTarget.style.background = "#7f1d1d"; e.currentTarget.style.color = "white";}} onMouseLeave={e => {e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#ef4444";}}>
               Sign out
             </button>
@@ -607,12 +600,9 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         </nav>
 
         <FilterBar
-          search={search} setSearch={setSearch}
-          filterLabel={filterLabel} setFilterLabel={setFilterLabel}
-          filterAssignee={filterAssignee} setFilterAssignee={setFilterAssignee}
-          filterPriority={filterPriority} setFilterPriority={setFilterPriority}
-          allAssignees={allAssignees}
-          onClear={() => { setSearch(""); setFilterLabel(""); setFilterAssignee(""); setFilterPriority(""); }}
+          search={search} setSearch={setSearch} filterLabel={filterLabel} setFilterLabel={setFilterLabel}
+          filterAssignee={filterAssignee} setFilterAssignee={setFilterAssignee} filterPriority={filterPriority} setFilterPriority={setFilterPriority}
+          allAssignees={allAssignees} onClear={() => { setSearch(""); setFilterLabel(""); setFilterAssignee(""); setFilterPriority(""); }}
         />
 
         <div style={{ flex: 1, overflowX: "auto", padding: "40px 32px" }}>
@@ -635,17 +625,9 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
                 return (
                   <div key={colId} style={{
-                    width: 320, flexShrink: 0,
-                    background: cc.bg, 
-                    borderRadius: 12,
-                    borderTop: `4px solid ${cc.theme}`,
-                    boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.05)", 
-                    display: "flex",
-                    flexDirection: "column"
+                    width: 320, flexShrink: 0, background: cc.bg, borderRadius: 12, borderTop: `4px solid ${cc.theme}`, boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.05)", display: "flex", flexDirection: "column"
                   }}>
-                    <div style={{
-                      padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(15, 23, 42, 0.04)"
-                    }}>
+                    <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(15, 23, 42, 0.04)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ width: 12, height: 12, borderRadius: "50%", background: cc.theme }} />
                         <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{column.title}</span>
@@ -661,11 +643,8 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                           style={{
-                            padding: "16px",
-                            minHeight: 150,
-                            background: snapshot.isDraggingOver ? "rgba(15, 23, 42, 0.04)" : "transparent",
-                            borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
-                            transition: "0.2s"
+                            padding: "16px", minHeight: 150, background: snapshot.isDraggingOver ? "rgba(15, 23, 42, 0.04)" : "transparent",
+                            borderBottomLeftRadius: 12, borderBottomRightRadius: 12, transition: "0.2s"
                           }}
                         >
                           {cards.length === 0 && !snapshot.isDraggingOver && (
@@ -675,14 +654,8 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                           )}
                           {cards.map((card, index) => (
                             <CardItem
-                              key={card.id}
-                              card={card}
-                              index={index}
-                              colColor={cc}
-                              colId={colId}
-                              onDelete={handleDeleteCard}
-                              onEdit={handleEditCard}
-                              onOpen={setSelectedCard}
+                              key={card.id} card={card} index={index} colColor={cc} colId={colId}
+                              onDelete={handleDeleteCard} onEdit={handleEditCard} onOpen={setSelectedCard}
                             />
                           ))}
                           {provided.placeholder}
@@ -699,19 +672,17 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
         {selectedCard && (
           <CardDetailModal
-            card={selectedCard}
-            onClose={() => setSelectedCard(null)}
-            onUpdate={handleUpdateAndSync}
-            onDelete={handleDeleteCard}
-            user={user}
-            logActivity={logActivity}
+            card={selectedCard} onClose={() => setSelectedCard(null)} onUpdate={handleUpdateAndSync}
+            onDelete={handleDeleteCard} user={user} logActivity={logActivity}
           />
         )}
       </div>
 
-      {/* MODALS RENDER OUTSIDE THE SHRINKING WRAPPER SO THEY STAY FIXED */}
       {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}
-      {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} onClose={() => setShowChat(false)} />} 
+      
+      {/* PASSED MEMBERS AS A PROP TO CHATFEED HERE */}
+      {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />} 
+      
       {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
       {showInvite && <InviteModal boardInfo={boardInfo} boardId={boardId} onClose={() => setShowInvite(false)} />}
     </>

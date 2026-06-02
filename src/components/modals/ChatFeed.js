@@ -11,7 +11,21 @@ function timeAgoShort(ts) {
   return `${Math.floor(diff / 86400000)}d`;
 }
 
-export default function ChatFeed({ boardId, user, userRole, onClose }) {
+// Function to make @mentions blue and bold in the chat bubble
+// Function to make @mentions pop based on the bubble's background color
+function formatChatText(text, isMe) {
+  // Bright cyan for your dark teal bubbles, standard blue for white bubbles
+  const mentionColor = isMe ? "#67e8f9" : "#0ea5e9"; 
+
+  return text.split(/(@[a-zA-Z0-9_.-]+)/).map((part, index) => {
+    if (part.startsWith('@')) {
+      return <span key={index} style={{ color: mentionColor, fontWeight: 800 }}>{part}</span>;
+    }
+    return part;
+  });
+}
+
+export default function ChatFeed({ boardId, user, userRole, members, onClose }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const messagesEndRef = useRef(null);
@@ -37,14 +51,41 @@ export default function ChatFeed({ boardId, user, userRole, onClose }) {
 
   function handleSend() {
     if (!text.trim()) return;
+    const currentUsername = user.email.split("@")[0];
+    
+    // 1. Send the actual chat message
     const chatRef = ref(db, `boards/${boardId}/chat`);
     push(chatRef, {
       text: text.trim(),
       senderEmail: user.email,
-      senderName: user.displayName || user.email.split("@")[0],
-      role: userRole || "member", // Save the actual role
+      senderName: user.displayName || currentUsername,
+      role: userRole || "member",
       timestamp: Date.now()
     });
+
+    // 2. Scan for @mentions and notify the tagged user
+    const mentions = text.match(/@([a-zA-Z0-9_.-]+)/g);
+    if (mentions && members) {
+      mentions.forEach(mention => {
+        const taggedName = mention.substring(1).toLowerCase(); // remove the '@'
+        
+        // Find if the tagged name matches any board member's email prefix
+        const matchedMemberEmail = members.find(m => m.split("@")[0].toLowerCase() === taggedName);
+        
+        if (matchedMemberEmail) {
+          const taggedEmailKey = matchedMemberEmail.replace(/\./g, ",");
+          
+          // Send notification directly to that user's Firebase node
+          push(ref(db, `userNotifications/${taggedEmailKey}`), {
+            message: `💬 ${currentUsername} mentioned you in chat: "${text.trim()}"`,
+            boardId: boardId,
+            timestamp: Date.now(),
+            read: false
+          });
+        }
+      });
+    }
+
     setText("");
   }
 
@@ -75,13 +116,31 @@ export default function ChatFeed({ boardId, user, userRole, onClose }) {
             const isLead = msg.role === "team_lead";
             const initial = (msg.senderName || "?")[0].toUpperCase();
 
+            // Simplified styling logic: Teal for you, White for everyone else
+            const getBubbleTheme = () => {
+              if (isMe) {
+                return {
+                  background: "linear-gradient(135deg, #0d9488, #0f766e)",
+                  color: "white",
+                  border: "none"
+                };
+              }
+              return {
+                background: "white",
+                color: "#0f172a",
+                border: "1px solid #e2e8f0"
+              };
+            };
+
+            const bubbleTheme = getBubbleTheme();
+
             return (
               <div key={i} style={{ display: "flex", gap: 10, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
                 
-                {/* User Avatar */}
+                {/* User Avatar - Unified Teal/Blue Gradient for all users */}
                 <div style={{ 
                   width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                  background: isLead ? "linear-gradient(135deg, #ca8a04, #eab308)" : "linear-gradient(135deg, #0d9488, #0ea5e9)",
+                  background: "linear-gradient(135deg, #0d9488, #0ea5e9)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 12, fontWeight: 700, color: "white",
                   boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
@@ -97,7 +156,7 @@ export default function ChatFeed({ boardId, user, userRole, onClose }) {
                       {isMe ? "You" : msg.senderName}
                     </span>
                     {isLead && (
-                      <span style={{ fontSize: 9, fontWeight: 800, background: "#fef08a", color: "#854d0e", padding: "2px 6px", borderRadius: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Lead</span>
+                      <span style={{ fontSize: 9, fontWeight: 800, background: "#e2e8f0", color: "#475569", padding: "2px 6px", borderRadius: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Lead</span>
                     )}
                     <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{timeAgoShort(msg.timestamp)}</span>
                   </div>
@@ -111,13 +170,11 @@ export default function ChatFeed({ boardId, user, userRole, onClose }) {
                     fontSize: 14,
                     lineHeight: 1.5,
                     wordBreak: "break-word",
-                    // Beautiful custom styling based on role and sender
-                    background: isLead ? (isMe ? "linear-gradient(135deg, #ca8a04, #d97706)" : "#fef9c3") : (isMe ? "linear-gradient(135deg, #0d9488, #0f766e)" : "white"),
-                    color: isLead ? (isMe ? "white" : "#854d0e") : (isMe ? "white" : "#0f172a"),
-                    border: isLead && !isMe ? "1px solid #fde047" : (!isMe ? "1px solid #e2e8f0" : "none"),
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                    ...bubbleTheme
                   }}>
-                    {msg.text}
+                    {/* Render the formatted text here */}
+                    {formatChatText(msg.text, isMe)}
                   </div>
                 </div>
               </div>
@@ -134,7 +191,7 @@ export default function ChatFeed({ boardId, user, userRole, onClose }) {
             value={text} 
             onChange={e => setText(e.target.value)} 
             onKeyDown={e => { if(e.key === "Enter") handleSend(); }}
-            placeholder="Write a message..." 
+            placeholder="Type @username to tag someone..." 
             style={{ flex: 1, padding: "10px 14px", border: "none", background: "transparent", fontSize: 14, outline: "none", fontFamily: "inherit" }}
           />
           <button 
