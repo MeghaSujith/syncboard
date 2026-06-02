@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
-// ADDED 'remove' here for the delete functionality
 import { ref, onValue, set, remove } from "firebase/database";
 
 const BOARD_GRADIENTS = [
@@ -76,124 +75,6 @@ function StatPopover({ type, boards, userEmail }) {
         </>
       );
     }
-
-    if (type === "collaborators") {
-      const allMembers = [...new Set(boards.flatMap(b => b.members || []))];
-      const others = allMembers.filter(m => m !== userEmail);
-      return (
-        <>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid #f1f5f9" }}>
-            All Collaborators
-          </div>
-          {/* You */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid #f8fafc" }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-              background: "linear-gradient(135deg, #0d9488, #0ea5e9)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 11, color: "white",
-            }}>
-              {getInitials(userEmail)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {userEmail}
-              </div>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>You</div>
-            </div>
-          </div>
-          {others.length === 0 ? (
-            <div style={{ color: "#94a3b8", fontSize: 13, paddingTop: 8 }}>No other collaborators yet.</div>
-          ) : (
-            others.map((m, i) => {
-              const sharedBoards = boards.filter(b => (b.members || []).includes(m));
-              return (
-                <div key={m} style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "7px 0",
-                  borderBottom: i < others.length - 1 ? "1px solid #f8fafc" : "none",
-                }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                    background: "#e2e8f0",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 700, fontSize: 11, color: "#64748b",
-                  }}>
-                    {m.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {m}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-                      {sharedBoards.length} shared board{sharedBoards.length !== 1 ? "s" : ""}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </>
-      );
-    }
-
-    if (type === "active") {
-      const today = boards.filter(b => b.createdAt && Date.now() - b.createdAt < 86400000);
-      const recent = boards.filter(b => b.createdAt && Date.now() - b.createdAt < 7 * 86400000);
-      return (
-        <>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid #f1f5f9" }}>
-            Activity Summary
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {[
-              { label: "Created today", value: today.length, bg: "#f0fdfa", color: "#0d9488" },
-              { label: "This week", value: recent.length, bg: "#eff6ff", color: "#3b82f6" },
-            ].map(s => (
-              <div key={s.label} style={{ background: s.bg, borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: s.color, letterSpacing: "-0.5px" }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-          {today.length === 0 ? (
-            <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "8px 0" }}>
-              No boards created today yet.
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 8 }}>
-                Created Today
-              </div>
-              {today.map((b, i) => (
-                <div key={b.id} style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "7px 0",
-                  borderBottom: i < today.length - 1 ? "1px solid #f8fafc" : "none",
-                }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-                    background: getBoardGradient(b.id),
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, fontSize: 12, color: "rgba(255,255,255,0.9)",
-                  }}>
-                    {(b.name || "U")[0].toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {b.name || "Unnamed Board"}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-                      {formatDate(b.createdAt)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </>
-      );
-    }
   })();
 
   return (
@@ -229,12 +110,16 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   const [loading, setLoading] = useState(true);
   
   const [newBoardName, setNewBoardName] = useState("");
-  const [newBoardDeadline, setNewBoardDeadline] = useState(""); // NEW: Deadline State
+  const [newBoardDeadline, setNewBoardDeadline] = useState(""); 
   
   const [creating, setCreating] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredStat, setHoveredStat] = useState(null);
+
+  // NEW METRICS STATE
+  const [myPendingCount, setMyPendingCount] = useState(0);
+  const [urgentTaskCount, setUrgentTaskCount] = useState(0);
   
   const hoverTimeoutRef = useRef(null);
   const inputRef = useRef(null);
@@ -250,6 +135,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     if (showCreate && inputRef.current) inputRef.current.focus();
   }, [showCreate]);
 
+  // UPDATED FETCH LOGIC: Grabs the full board (info + data) so we can count tasks
   useEffect(() => {
     const userEmail = user.email.replace(/\./g, ",");
     const userBoardsRef = ref(db, `userBoards/${userEmail}`);
@@ -258,11 +144,18 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
         const boardIds = Object.keys(snapshot.val());
         const boardPromises = boardIds.map(boardId =>
           new Promise(resolve => {
-            const boardInfoRef = ref(db, `boards/${boardId}/info`);
-            onValue(boardInfoRef, (infoSnap) => {
-              resolve(infoSnap.exists()
-                ? { id: boardId, ...infoSnap.val() }
-                : { id: boardId, name: "Unnamed Board" });
+            const boardRef = ref(db, `boards/${boardId}`);
+            onValue(boardRef, (snap) => {
+              if (snap.exists()) {
+                const val = snap.val();
+                resolve({ 
+                  id: boardId, 
+                  ...val.info, 
+                  data: val.data 
+                });
+              } else {
+                resolve({ id: boardId, name: "Unnamed Board" });
+              }
             }, { onlyOnce: true });
           })
         );
@@ -273,6 +166,37 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     });
     return () => unsubscribe();
   }, [user]);
+
+  // NEW ACTIONABLE METRICS LOGIC
+  useEffect(() => {
+    let pending = 0;
+    let urgent = 0;
+    const now = Date.now();
+    const fortyEightHours = 48 * 60 * 60 * 1000;
+
+    boards.forEach(board => {
+      const cards = board.data?.cards || {};
+      const doneIds = board.data?.columns?.done?.cardIds || [];
+
+      Object.values(cards).forEach(card => {
+        if (doneIds.includes(card.id)) return; // Skip done tasks
+
+        if (card.assignee === user.email) {
+          pending++;
+        }
+
+        if (card.dueDate) {
+          const dueTime = new Date(card.dueDate).getTime();
+          if (dueTime < now || (dueTime - now) < fortyEightHours) {
+            urgent++;
+          }
+        }
+      });
+    });
+
+    setMyPendingCount(pending);
+    setUrgentTaskCount(urgent);
+  }, [boards, user.email]);
 
   function handleCreateBoard() {
     if (!newBoardName.trim() || !newBoardDeadline) {
@@ -285,7 +209,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     set(ref(db, `boards/${newBoardId}/info`), {
       name: newBoardName.trim(),
       owner: user.email,
-      dueDate: newBoardDeadline, // NEW: Saving deadline to database
+      dueDate: newBoardDeadline,
       members: [user.email],
       createdAt: Date.now(),
     });
@@ -296,9 +220,8 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     setShowCreate(false);
   }
 
-  // NEW: Delete Board Logic
   function handleDeleteBoard(e, boardId, boardName) {
-    e.stopPropagation(); // Prevents you from navigating to the board when clicking trash
+    e.stopPropagation();
     if (window.confirm(`⚠️ Are you sure you want to completely delete the project "${boardName}"?`)) {
       remove(ref(db, `boards/${boardId}`));
       const userEmailKey = user.email.replace(/\./g, ",");
@@ -306,6 +229,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
       setBoards(prev => prev.filter(b => b.id !== boardId));
     }
   }
+
   function handleStatMouseEnter(type) {
     clearTimeout(hoverTimeoutRef.current);
     setHoveredStat(type);
@@ -314,7 +238,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     hoverTimeoutRef.current = setTimeout(() => setHoveredStat(null), 120);
   }
 
-  // NEW: Sort boards by deadline
   const sortedBoards = [...boards].sort((a, b) => {
     if (!a.dueDate) return 1;
     if (!b.dueDate) return -1;
@@ -555,7 +478,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
             <span className="nav-title">SyncBoard</span>
           </div>
           <div className="nav-right">
-            {/* NEW: Team Lead Badge */}
             {isTeamLead && (
               <div style={{ marginRight: 8, padding: "4px 8px", background: "#fef08a", color: "#854d0e", borderRadius: 6, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
                 Team Lead
@@ -564,9 +486,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
             
             <div className="avatar">{getInitials(user.email)}</div>
             <span className="user-email">{user.email}</span>
-            
-            {/* Removed the global Digest button from here entirely! */}
-            
             <button className="btn btn-danger" onClick={onLogout}>Sign out</button>
           </div>
         </nav>
@@ -586,12 +505,13 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
           </div>
 
           <div className="stats-row">
+            {/* 1. Total Boards (Hover preserved) */}
             <div
               className="stat-card"
               onMouseEnter={() => handleStatMouseEnter("boards")}
               onMouseLeave={handleStatMouseLeave}
             >
-              <div className="stat-icon-wrap" style={{ background: "#f0fdfa" }}>📋</div>
+              <div className="stat-icon-wrap" style={{ background: "#f0fdfa", color: "#0d9488" }}>📋</div>
               <div style={{ flex: 1 }}>
                 <div className="stat-label">Total Boards</div>
                 <div className="stat-value">{boards.length}</div>
@@ -602,36 +522,24 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
               )}
             </div>
 
-            <div
-              className="stat-card"
-              onMouseEnter={() => handleStatMouseEnter("collaborators")}
-              onMouseLeave={handleStatMouseLeave}
-            >
-              <div className="stat-icon-wrap" style={{ background: "#eff6ff" }}>👥</div>
+            {/* 2. NEW My Pending Tasks */}
+            <div className="stat-card">
+              <div className="stat-icon-wrap" style={{ background: "#eff6ff", color: "#3b82f6" }}>📝</div>
               <div style={{ flex: 1 }}>
-                <div className="stat-label">Collaborators</div>
-                <div className="stat-value">{[...new Set(boards.flatMap(b => b.members || []))].length}</div>
-                <div className="stat-hint">Hover to see all</div>
+                <div className="stat-label">My Pending Tasks</div>
+                <div className="stat-value">{myPendingCount}</div>
+                <div className="stat-hint" style={{ color: "#3b82f6" }}>Assigned directly to you</div>
               </div>
-              {hoveredStat === "collaborators" && (
-                <StatPopover type="collaborators" boards={boards} userEmail={user.email} />
-              )}
             </div>
 
-            <div
-              className="stat-card"
-              onMouseEnter={() => handleStatMouseEnter("active")}
-              onMouseLeave={handleStatMouseLeave}
-            >
-              <div className="stat-icon-wrap" style={{ background: "#fefce8" }}>⚡</div>
+            {/* 3. NEW Urgent & Overdue */}
+            <div className="stat-card">
+              <div className="stat-icon-wrap" style={{ background: "#fef2f2", color: "#ef4444" }}>⏰</div>
               <div style={{ flex: 1 }}>
-                <div className="stat-label">Active Today</div>
-                <div className="stat-value">{boards.filter(b => b.createdAt && Date.now() - b.createdAt < 86400000).length}</div>
-                <div className="stat-hint">Hover for activity</div>
+                <div className="stat-label">Due Soon & Overdue</div>
+                <div className="stat-value">{urgentTaskCount}</div>
+                <div className="stat-hint" style={{ color: "#ef4444" }}>Requires immediate attention</div>
               </div>
-              {hoveredStat === "active" && (
-                <StatPopover type="active" boards={boards} userEmail={user.email} />
-              )}
             </div>
           </div>
 
@@ -658,7 +566,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                     placeholder="e.g. Q3 Product Roadmap"
                   />
                   
-                  {/* NEW: Date Picker for Deadline */}
                   <input
                     type="date"
                     className="create-input"
@@ -686,12 +593,10 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
               <div className="section-label">All boards — {boards.length}</div>
               <div className="boards-grid">
                 
-                {/* NEW: Iterating over sortedBoards so urgent projects are first */}
                 {sortedBoards.map((board, i) => {
                   const gradient = getBoardGradient(board.id);
                   const firstLetter = (board.name || "U")[0].toUpperCase();
 
-                  // NEW: Deadline Alarm Logic
                   let daysLeft = null;
                   let badgeStyle = { bg: "#f1f5f9", text: "#64748b", icon: "📅", label: board.dueDate || "No deadline" };
                   
@@ -718,7 +623,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                     >
                       <div className="board-card-banner" style={{ background: gradient }}>
                         
-                        {/* NEW: Trash Can for Team Leads */}
                         {isTeamLead && (
                           <button 
                             onClick={(e) => handleDeleteBoard(e, board.id, board.name)}
@@ -747,7 +651,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                           <span>{board.owner === user.email ? "Owned by you" : board.owner}</span>
                         </div>
 
-                        {/* NEW: Display the Deadline Badge inside the card */}
                         <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: badgeStyle.bg, color: badgeStyle.text }}>
                           {badgeStyle.icon} {badgeStyle.label}
                         </div>
