@@ -214,7 +214,7 @@ function NotificationBell({ notifications, onClear }) {
   
   return (
     <div style={{ position: "relative" }}>
-      <button onClick={() => setOpen(o => !o)} style={{ width: 40, height: 40, borderRadius: "8px", border: "1px solid #334155", background: open ? "#1e293b" : "transparent", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#1e293b"} onMouseLeave={e => e.currentTarget.style.background = open ? "#1e293b" : "transparent"}>
+      <button title="Notifications" onClick={() => setOpen(o => !o)} style={{ width: 40, height: 40, borderRadius: "8px", border: "1px solid #334155", background: open ? "#1e293b" : "transparent", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#1e293b"} onMouseLeave={e => e.currentTarget.style.background = open ? "#1e293b" : "transparent"}>
         <span style={{color: "#cbd5e1"}}>🔔</span>
         {unread > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: "#ef4444", border: "2px solid #0f172a", color: "white", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>}
       </button>
@@ -312,11 +312,11 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ boardId: boardId, boardName: boardInfo?.name || "Project" }),
       });
-      const data = await res.json();
+      const responseData = await res.json();
       if (res.ok) {
         alert("✅ Digest sent successfully!");
       } else {
-        alert(`❌ Error: ${data.error}`);
+        alert(`❌ Error: ${responseData.error}`);
       }
     } catch (e) {
       console.error(e);
@@ -375,7 +375,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     push(ref(db, `boards/${boardId}/activity`), { user: user.email, action, timestamp: Date.now() });
   }
 
-  // UPDATED ADD NOTIFICATION (Pushes to Firebase)
   function addNotification(message) {
     if (!user || !user.email) return;
     const userEmailKey = user.email.replace(/\./g, ",");
@@ -539,8 +538,9 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            
+            {/* TYPO FIXED: Cleaned up the 'Active' text wrapper */}
             <div style={{display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, whiteSpace: "nowrap"}}>
-               <span style={{fontSize: 13, color: '#94a3b8', fontWeight: 600}}>Active:</span>
                <Presence user={user} boardId={boardId} />
             </div>
 
@@ -554,25 +554,25 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               </button>
             )}
 
-            <button onClick={() => setShowAnalytics(true)} style={{
-              padding: "8px 16px", background: "#1e293b", color: "#e2e8f0", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
+            {/* BUTTONS FIXED: Now sleek, icon-only squares with tooltips */}
+            <button title="Analytics" onClick={() => setShowAnalytics(true)} style={{
+              width: 38, height: 38, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
             }} onMouseEnter={e => e.currentTarget.style.background = "#334155"} onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}>
-              📊 Analytics
+              📊
             </button>
 
-            <button onClick={() => { setShowChat(s => !s); setShowActivity(false); }} style={{
-              padding: "8px 16px", background: showChat ? "#0d9488" : "#1e293b", color: showChat ? "white" : "#e2e8f0", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
+            <button title="Team Chat" onClick={() => { setShowChat(s => !s); setShowActivity(false); }} style={{
+              width: 38, height: 38, background: showChat ? "#0d9488" : "#1e293b", color: showChat ? "white" : "#e2e8f0", border: showChat ? "none" : "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
             }}>
-              💬 Team Chat
+              💬
             </button>
 
-            <button onClick={() => { setShowActivity(s => !s); setShowChat(false); }} style={{
-              padding: "8px 16px", background: showActivity ? "#0d9488" : "#1e293b", color: showActivity ? "white" : "#e2e8f0", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, transition: "0.2s"
+            <button title="Activity Log" onClick={() => { setShowActivity(s => !s); setShowChat(false); }} style={{
+              width: 38, height: 38, background: showActivity ? "#0d9488" : "#1e293b", color: showActivity ? "white" : "#e2e8f0", border: showActivity ? "none" : "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
             }}>
-              📋 Activity
+              📋
             </button>
 
-            {/* UPDATED NOTIFICATION CLEAR LOGIC */}
             <NotificationBell notifications={notifications} onClear={() => {
                 const userEmailKey = user.email.replace(/\./g, ",");
                 set(ref(db, `userNotifications/${userEmailKey}`), null);
@@ -585,7 +585,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginLeft: 8, background: "#0ea5e9", borderRadius: 24, whiteSpace: "nowrap" }}>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0ea5e9" }}>
                 {user.email[0].toUpperCase()}
               </div>
               <span style={{ fontSize: 14, color: "white", fontWeight: 600 }}>{user.email.split("@")[0]}</span>
@@ -680,7 +680,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
       {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}
       
-      {/* PASSED MEMBERS AS A PROP TO CHATFEED HERE */}
       {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />} 
       
       {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
