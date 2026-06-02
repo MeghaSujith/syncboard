@@ -33,41 +33,24 @@ function StatPopover({ type, boards, userEmail }) {
     if (type === "boards") {
       return (
         <>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid #f1f5f9" }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid #f1f5f9" }}>
             Your Boards
           </div>
           {boards.length === 0 ? (
             <div style={{ color: "#94a3b8", fontSize: 13 }}>No boards yet.</div>
           ) : (
             boards.map((b, i) => (
-              <div key={b.id} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "7px 0",
-                borderBottom: i < boards.length - 1 ? "1px solid #f8fafc" : "none",
-              }}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-                  background: getBoardGradient(b.id),
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 800, fontSize: 12, color: "rgba(255,255,255,0.9)",
-                }}>
+              <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < boards.length - 1 ? "1px solid #f8fafc" : "none" }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: getBoardGradient(b.id), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, color: "white", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}>
                   {(b.name || "U")[0].toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {b.name || "Unnamed Board"}
                   </div>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-                    {formatDate(b.createdAt)} · {(b.members || []).length} member{(b.members || []).length !== 1 ? "s" : ""}
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, fontWeight: 500 }}>
+                    {formatDate(b.createdAt)}
                   </div>
-                </div>
-                <div style={{
-                  fontSize: 11, fontWeight: 600, padding: "2px 7px",
-                  borderRadius: 5, flexShrink: 0,
-                  background: b.owner === userEmail ? "#f0fdfa" : "#f8fafc",
-                  color: b.owner === userEmail ? "#0d9488" : "#94a3b8",
-                }}>
-                  {b.owner === userEmail ? "Owner" : "Member"}
                 </div>
               </div>
             ))
@@ -75,32 +58,77 @@ function StatPopover({ type, boards, userEmail }) {
         </>
       );
     }
+    if (type === "pending") {
+      const pendingTasks = [];
+      boards.forEach(b => {
+        const doneIds = b.data?.columns?.done?.cardIds || [];
+        const cards = b.data?.cards || {};
+        Object.values(cards).forEach(c => {
+          if (c.assignee === userEmail && !doneIds.includes(c.id)) pendingTasks.push({ boardName: b.name, ...c });
+        });
+      });
+      return (
+        <>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid #f1f5f9" }}>My Pending Tasks</div>
+          {pendingTasks.length === 0 ? <div style={{ color: "#94a3b8", fontSize: 13 }}>You're all caught up!</div> : pendingTasks.map((t, i) => (
+            <div key={t.id || i} style={{ padding: "10px 0", borderBottom: i < pendingTasks.length - 1 ? "1px solid #f8fafc" : "none" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
+              <div style={{ fontSize: 11, color: "#0d9488", marginTop: 3, fontWeight: 700 }}>{t.boardName || "Unnamed Board"}</div>
+            </div>
+          ))}
+        </>
+      );
+    }
+    if (type === "urgent") {
+      const urgentTasks = [];
+      const now = Date.now();
+      boards.forEach(b => {
+        const doneIds = b.data?.columns?.done?.cardIds || [];
+        const cards = b.data?.cards || {};
+        Object.values(cards).forEach(c => {
+          if (doneIds.includes(c.id) || !c.dueDate) return;
+          const dueTime = new Date(c.dueDate).getTime();
+          if (dueTime < now || (dueTime - now) < 172800000) urgentTasks.push({ boardName: b.name, ...c });
+        });
+      });
+      return (
+        <>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid #f1f5f9" }}>Urgent & Overdue</div>
+          {urgentTasks.length === 0 ? <div style={{ color: "#94a3b8", fontSize: 13 }}>No urgent tasks!</div> : urgentTasks.map((t, i) => {
+            const isOverdue = new Date(t.dueDate).getTime() < Date.now();
+            return (
+              <div key={t.id || i} style={{ padding: "10px 0", borderBottom: i < urgentTasks.length - 1 ? "1px solid #f8fafc" : "none" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
+                <div style={{ display: "flex", gap: 6, fontSize: 11, marginTop: 3, fontWeight: 700 }}>
+                  <span style={{ color: isOverdue ? "#ef4444" : "#f59e0b" }}>{isOverdue ? "Overdue" : "Due Soon"}</span>
+                  <span style={{ color: "#94a3b8" }}>• {t.boardName || "Unnamed"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      );
+    }
   })();
 
   return (
     <div style={{
-      position: "absolute",
-      top: "calc(100% + 10px)",
-      left: "50%",
-      transform: "translateX(-50%)",
-      zIndex: 999,
-      background: "white",
-      border: "1px solid #e2e8f0",
-      borderRadius: 14,
-      boxShadow: "0 16px 48px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06)",
-      padding: "14px 16px",
-      width: 260,
-      maxHeight: 320,
-      overflowY: "auto",
-      animation: "popoverIn 0.18s ease",
+      position: "absolute", top: "calc(100% + 14px)", left: "50%", transform: "translateX(-50%)",
+      zIndex: 999, animation: "popoverIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
     }}>
-      <div style={{
-        position: "absolute", top: -6, left: "50%", 
-        width: 12, height: 12, background: "white",
-        border: "1px solid #e2e8f0", borderRight: "none", borderBottom: "none",
-        transform: "translateX(-50%) rotate(45deg)",
+      <div style={{ 
+        position: "absolute", top: -6, left: "50%", width: 14, height: 14, background: "white", 
+        borderTop: "1px solid #e2e8f0", borderLeft: "1px solid #e2e8f0", 
+        transform: "translateX(-50%) rotate(45deg)", borderRadius: "2px 0 0 0", zIndex: 2 
       }} />
-      {content}
+      <div style={{
+        background: "white", border: "1px solid #e2e8f0", borderRadius: 16,
+        boxShadow: "0 20px 40px -8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.02)",
+        padding: "18px 20px", width: 280, maxHeight: 320, overflowY: "auto",
+        position: "relative", zIndex: 1
+      }}>
+        {content}
+      </div>
     </div>
   );
 }
@@ -117,7 +145,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredStat, setHoveredStat] = useState(null);
 
-  // NEW METRICS STATE
   const [myPendingCount, setMyPendingCount] = useState(0);
   const [urgentTaskCount, setUrgentTaskCount] = useState(0);
   
@@ -135,7 +162,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     if (showCreate && inputRef.current) inputRef.current.focus();
   }, [showCreate]);
 
-  // UPDATED FETCH LOGIC: Grabs the full board (info + data) so we can count tasks
   useEffect(() => {
     const userEmail = user.email.replace(/\./g, ",");
     const userBoardsRef = ref(db, `userBoards/${userEmail}`);
@@ -148,11 +174,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
             onValue(boardRef, (snap) => {
               if (snap.exists()) {
                 const val = snap.val();
-                resolve({ 
-                  id: boardId, 
-                  ...val.info, 
-                  data: val.data 
-                });
+                resolve({ id: boardId, ...val.info, data: val.data });
               } else {
                 resolve({ id: boardId, name: "Unnamed Board" });
               }
@@ -167,7 +189,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     return () => unsubscribe();
   }, [user]);
 
-  // NEW ACTIONABLE METRICS LOGIC
   useEffect(() => {
     let pending = 0;
     let urgent = 0;
@@ -179,17 +200,11 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
       const doneIds = board.data?.columns?.done?.cardIds || [];
 
       Object.values(cards).forEach(card => {
-        if (doneIds.includes(card.id)) return; // Skip done tasks
-
-        if (card.assignee === user.email) {
-          pending++;
-        }
-
+        if (doneIds.includes(card.id)) return;
+        if (card.assignee === user.email) pending++;
         if (card.dueDate) {
           const dueTime = new Date(card.dueDate).getTime();
-          if (dueTime < now || (dueTime - now) < fortyEightHours) {
-            urgent++;
-          }
+          if (dueTime < now || (dueTime - now) < fortyEightHours) urgent++;
         }
       });
     });
@@ -294,18 +309,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
       box-shadow: 0 2px 8px rgba(13,148,136,0.3);
     }
     .user-email { font-size: 13px; color: #475569; font-weight: 500; }
-    .btn {
-      padding: 8px 16px; border: none; border-radius: 8px;
-      font-size: 13px; font-weight: 600; cursor: pointer;
-      transition: all 0.2s; font-family: inherit;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .btn-ghost { background: transparent; color: #64748b; border: 1px solid #e2e8f0; }
-    .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
-    .btn-teal { background: #0d9488; color: white; box-shadow: 0 2px 8px rgba(13,148,136,0.3); }
-    .btn-teal:hover { background: #0f766e; box-shadow: 0 4px 14px rgba(13,148,136,0.4); transform: translateY(-1px); }
-    .btn-teal:disabled { background: #cbd5e1; box-shadow: none; transform: none; cursor: not-allowed; }
-    .btn-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .btn-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; }
     .btn-danger:hover { background: #fee2e2; }
 
     .main { max-width: 1100px; margin: 0 auto; padding: 40px 32px; position: relative; z-index: 1; }
@@ -317,14 +321,10 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
       position: relative; overflow: hidden;
     }
     .hero-banner::before {
-      content: ''; position: absolute; top: -40px; right: -40px;
-      width: 220px; height: 220px;
-      background: rgba(255,255,255,0.08); border-radius: 50%;
+      content: ''; position: absolute; top: -40px; right: -40px; width: 220px; height: 220px; background: rgba(255,255,255,0.08); border-radius: 50%;
     }
     .hero-banner::after {
-      content: ''; position: absolute; bottom: -60px; right: 120px;
-      width: 160px; height: 160px;
-      background: rgba(255,255,255,0.06); border-radius: 50%;
+      content: ''; position: absolute; bottom: -60px; right: 120px; width: 160px; height: 160px; background: rgba(255,255,255,0.06); border-radius: 50%;
     }
     .hero-text h2 { font-size: 26px; font-weight: 800; color: white; letter-spacing: -0.5px; margin-bottom: 6px; }
     .hero-text p { font-size: 14px; color: rgba(255,255,255,0.8); }
@@ -332,126 +332,75 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
       background: white; color: #0d9488;
       padding: 11px 22px; border: none; border-radius: 10px;
       font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
-      display: flex; align-items: center; gap: 7px;
-      transition: all 0.2s; white-space: nowrap;
-      position: relative; z-index: 1;
+      display: flex; align-items: center; gap: 7px; transition: all 0.2s; position: relative; z-index: 1;
       box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
     .hero-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
 
-    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+    
     .stat-card {
-      background: white; border-radius: 16px; padding: 22px 24px;
-      border: 1px solid #e2e8f0;
-      display: flex; align-items: center; gap: 16px;
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-      position: relative;
-      cursor: default;
+      background: white; border-radius: 16px; padding: 22px 24px; border: 1px solid #e2e8f0;
+      display: flex; align-items: center; gap: 16px; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      position: relative; cursor: default;
     }
     .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.07); border-color: #0d9488; }
-    .stat-icon-wrap { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-    .stat-label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .stat-icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+    .stat-label { font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
     .stat-value { font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
-    .stat-hint { font-size: 11px; color: #0d9488; margin-top: 2px; opacity: 0.8; }
+    .stat-hint { font-size: 12px; margin-top: 2px; font-weight: 500; }
 
-    @keyframes popoverIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
-      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @keyframes popoverIn { 
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); } 
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); } 
     }
 
-    .create-panel { background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 32px; }
-    .create-header { padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; }
-    .create-header:hover { background: #f8fafc; }
-    .create-header-left { display: flex; align-items: center; gap: 14px; }
-    .create-plus-icon {
-      width: 36px; height: 36px; border-radius: 9px;
-      background: #f0fdfa; color: #0d9488;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 300; line-height: 1;
-      border: 1.5px dashed #0d9488;
-    }
-    .create-title { font-size: 14px; font-weight: 700; color: #0f172a; }
-    .create-sub { font-size: 12px; color: #94a3b8; margin-top: 1px; }
-    .create-chevron { font-size: 20px; color: #94a3b8; transition: transform 0.25s; display: inline-block; }
-    .create-chevron.open { transform: rotate(90deg); }
-    .create-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; padding: 0 24px; }
-    .create-body.open { max-height: 120px; padding: 0 24px 20px; }
-    .create-input-row { display: flex; gap: 10px; }
-    .create-input {
-      flex: 1; padding: 12px 14px; border: 2px solid #e2e8f0; border-radius: 10px;
-      font-size: 14px; color: #0f172a; font-family: inherit; outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s; background: #f8fafc;
-    }
-    .create-input:focus { border-color: #0d9488; box-shadow: 0 0 0 3px #f0fdfa; background: white; }
-
-    .section-label {
-      font-size: 11px; font-weight: 700; color: #94a3b8;
-      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;
-      display: flex; align-items: center; gap: 8px;
-    }
+    .section-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
     .section-label::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
 
     .boards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
 
     .board-card {
-      background: white; border: 1px solid #e2e8f0; border-radius: 16px;
-      overflow: hidden; cursor: pointer;
-      transition: transform 0.22s, box-shadow 0.22s, border-color 0.22s;
-      animation: cardIn 0.4s ease both;
+      background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; cursor: pointer;
+      transition: transform 0.22s, box-shadow 0.22s, border-color 0.22s; animation: cardIn 0.4s ease both;
     }
     .board-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.1); border-color: #cbd5e1; }
     @keyframes cardIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
     .board-card-banner {
-      height: 80px; position: relative; overflow: hidden;
-      display: flex; align-items: flex-end; padding: 12px 16px;
+      position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; padding: 20px 20px; min-height: 90px;
     }
-    .board-card-banner-letter {
-      font-size: 42px; font-weight: 800;
-      color: rgba(255,255,255,0.2);
-      position: absolute; right: 14px; top: 6px;
-      line-height: 1; letter-spacing: -2px; user-select: none;
-    }
+    .board-card-title-white { font-size: 18px; font-weight: 800; color: white; margin-bottom: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.15); line-height: 1.2; }
     .board-name-badge {
-      background: rgba(255,255,255,0.2);
-      backdrop-filter: blur(4px);
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 6px; padding: 3px 8px;
-      font-size: 11px; font-weight: 700; color: white; letter-spacing: 0.3px;
+      background: rgba(255,255,255,0.25); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: white; letter-spacing: 0.3px;
     }
-    .board-card-body { padding: 16px 18px 14px; }
-    .board-card-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-    .board-card-meta { font-size: 12px; color: #94a3b8; display: flex; gap: 10px; align-items: center; }
-    .meta-dot { width: 3px; height: 3px; border-radius: 50%; background: #cbd5e1; }
+    
+    .board-card-body { padding: 16px 20px 14px; }
+    .board-card-meta { font-size: 12px; color: #64748b; display: flex; gap: 10px; align-items: center; font-weight: 500;}
+    .meta-dot { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; }
+    
     .board-card-footer {
-      padding: 11px 18px; background: #f8fafc;
-      border-top: 1px solid #f1f5f9;
-      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;
     }
     .member-stack { display: flex; align-items: center; }
     .member-avatar {
-      width: 24px; height: 24px; border-radius: 50%;
-      background: #f0fdfa; border: 2px solid white;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 9px; font-weight: 700; color: #0d9488;
+      width: 26px; height: 26px; border-radius: 50%; background: #f0fdfa; border: 2px solid white;
+      display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #0d9488;
     }
-    .member-count { font-size: 12px; color: #64748b; font-weight: 500; margin-left: 8px; }
+    .member-count { font-size: 12px; color: #64748b; font-weight: 600; margin-left: 8px; }
     .open-pill { font-size: 12px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
     .board-card:hover .open-pill { color: #0d9488; }
     .open-arrow { transition: transform 0.2s; display: inline-block; }
     .board-card:hover .open-arrow { transform: translateX(3px); }
 
-    .empty {
-      text-align: center; padding: 72px 32px;
-      background: white; border: 1.5px dashed #cbd5e1; border-radius: 16px;
-    }
+    .empty { text-align: center; padding: 72px 32px; background: white; border: 1.5px dashed #cbd5e1; border-radius: 16px; }
     .empty-icon { font-size: 44px; margin-bottom: 14px; }
     .empty h3 { font-size: 16px; font-weight: 700; color: #334155; margin-bottom: 6px; }
     .empty p { font-size: 14px; color: #94a3b8; }
 
     .loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; }
     .spinner { width: 36px; height: 36px; border: 3px solid #e2e8f0; border-top-color: #0d9488; border-radius: 50%; animation: spin 0.7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
   `;
 
   if (loading) return (
@@ -464,8 +413,30 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   return (
     <>
       <style>{styles}</style>
-      <div className={`boards-root${mounted ? " mounted" : ""}`}>
 
+      {/* CREATE BOARD MODAL OVERLAY */}
+      {showCreate && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={() => setShowCreate(false)}>
+          <div style={{ background: "white", padding: 32, borderRadius: 16, width: 420, boxShadow: "0 20px 40px rgba(0,0,0,0.15)", animation: "popoverIn 0.2s ease" }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, marginBottom: 6, fontSize: 20, color: "#0f172a" }}>Create New Board</h3>
+            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 24 }}>Set up a new project workspace for your team.</p>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 8, letterSpacing: "0.5px" }}>BOARD NAME</label>
+              <input ref={inputRef} value={newBoardName} onChange={e => setNewBoardName(e.target.value)} placeholder="e.g. Q3 Product Roadmap" style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "2px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none", transition: "0.2s" }} onFocus={e => e.target.style.borderColor = "#0d9488"} onBlur={e => e.target.style.borderColor = "#e2e8f0"} />
+            </div>
+            <div style={{ marginBottom: 32 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 8, letterSpacing: "0.5px" }}>DEADLINE</label>
+              <input type="date" value={newBoardDeadline} onChange={e => setNewBoardDeadline(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "2px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none", transition: "0.2s" }} onFocus={e => e.target.style.borderColor = "#0d9488"} onBlur={e => e.target.style.borderColor = "#e2e8f0"} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+              <button onClick={() => setShowCreate(false)} style={{ padding: "10px 20px", background: "transparent", border: "none", color: "#64748b", fontWeight: 600, cursor: "pointer", borderRadius: 8 }}>Cancel</button>
+              <button onClick={handleCreateBoard} disabled={creating || !newBoardName.trim() || !newBoardDeadline} style={{ padding: "10px 24px", background: "#0d9488", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 12px rgba(13,148,136,0.2)" }}>{creating ? "Creating..." : "Create Board"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={`boards-root${mounted ? " mounted" : ""}`}>
         <nav className="nav">
           <div className="nav-brand">
             <div className="nav-logo">
@@ -483,120 +454,84 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                 Team Lead
               </div>
             )}
-            
             <div className="avatar">{getInitials(user.email)}</div>
             <span className="user-email">{user.email}</span>
-            <button className="btn btn-danger" onClick={onLogout}>Sign out</button>
+            <button className="btn-danger" onClick={onLogout}>Sign out</button>
           </div>
         </nav>
 
         <main className="main">
-
           <div className="hero-banner">
             <div className="hero-text">
               <h2>Welcome back, {user.displayName || user.email.split("@")[0]} 👋</h2>
               <p>You have {boards.length} board{boards.length !== 1 ? "s" : ""} — pick up where you left off.</p>
             </div>
             {isTeamLead && (
-              <button className="hero-btn" onClick={() => setShowCreate(s => !s)}>
+              <button className="hero-btn" onClick={() => setShowCreate(true)}>
                 <span style={{ fontSize: "18px", lineHeight: 1 }}>+</span> New Board
               </button>
             )}
           </div>
 
           <div className="stats-row">
-            {/* 1. Total Boards (Hover preserved) */}
-            <div
-              className="stat-card"
-              onMouseEnter={() => handleStatMouseEnter("boards")}
+            <div 
+              className="stat-card" 
+              style={{ zIndex: hoveredStat === "boards" ? 50 : 1 }}
+              onMouseEnter={() => handleStatMouseEnter("boards")} 
               onMouseLeave={handleStatMouseLeave}
             >
-              <div className="stat-icon-wrap" style={{ background: "#f0fdfa", color: "#0d9488" }}>📋</div>
+              <div className="stat-icon-wrap" style={{ background: "linear-gradient(135deg, #f0fdfa, #ccfbf1)", color: "#0d9488" }}>📋</div>
               <div style={{ flex: 1 }}>
                 <div className="stat-label">Total Boards</div>
                 <div className="stat-value">{boards.length}</div>
-                <div className="stat-hint">Hover to see all</div>
+                <div className="stat-hint" style={{ color: "#0d9488" }}>Hover to see all</div>
               </div>
-              {hoveredStat === "boards" && (
-                <StatPopover type="boards" boards={boards} userEmail={user.email} />
-              )}
+              {hoveredStat === "boards" && <StatPopover type="boards" boards={boards} userEmail={user.email} />}
             </div>
 
-            {/* 2. NEW My Pending Tasks */}
-            <div className="stat-card">
-              <div className="stat-icon-wrap" style={{ background: "#eff6ff", color: "#3b82f6" }}>📝</div>
+            <div 
+              className="stat-card" 
+              style={{ zIndex: hoveredStat === "pending" ? 50 : 1 }}
+              onMouseEnter={() => handleStatMouseEnter("pending")} 
+              onMouseLeave={handleStatMouseLeave}
+            >
+              <div className="stat-icon-wrap" style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)", color: "#3b82f6" }}>📝</div>
               <div style={{ flex: 1 }}>
                 <div className="stat-label">My Pending Tasks</div>
                 <div className="stat-value">{myPendingCount}</div>
                 <div className="stat-hint" style={{ color: "#3b82f6" }}>Assigned directly to you</div>
               </div>
+              {hoveredStat === "pending" && <StatPopover type="pending" boards={boards} userEmail={user.email} />}
             </div>
 
-            {/* 3. NEW Urgent & Overdue */}
-            <div className="stat-card">
-              <div className="stat-icon-wrap" style={{ background: "#fef2f2", color: "#ef4444" }}>⏰</div>
+            <div 
+              className="stat-card" 
+              style={{ zIndex: hoveredStat === "urgent" ? 50 : 1 }}
+              onMouseEnter={() => handleStatMouseEnter("urgent")} 
+              onMouseLeave={handleStatMouseLeave}
+            >
+              <div className="stat-icon-wrap" style={{ background: "linear-gradient(135deg, #fef2f2, #fee2e2)", color: "#ef4444" }}>⏰</div>
               <div style={{ flex: 1 }}>
                 <div className="stat-label">Due Soon & Overdue</div>
                 <div className="stat-value">{urgentTaskCount}</div>
                 <div className="stat-hint" style={{ color: "#ef4444" }}>Requires immediate attention</div>
               </div>
+              {hoveredStat === "urgent" && <StatPopover type="urgent" boards={boards} userEmail={user.email} />}
             </div>
           </div>
-
-          {isTeamLead && (
-            <div className="create-panel">
-              <div className="create-header" onClick={() => setShowCreate(s => !s)}>
-                <div className="create-header-left">
-                  <div className="create-plus-icon">+</div>
-                  <div>
-                    <div className="create-title">Create a new board</div>
-                    <div className="create-sub">Start a fresh project workspace</div>
-                  </div>
-                </div>
-                <span className={`create-chevron${showCreate ? " open" : ""}`}>›</span>
-              </div>
-              <div className={`create-body${showCreate ? " open" : ""}`}>
-                <div className="create-input-row">
-                  <input
-                    ref={inputRef}
-                    className="create-input"
-                    value={newBoardName}
-                    onChange={e => setNewBoardName(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleCreateBoard()}
-                    placeholder="e.g. Q3 Product Roadmap"
-                  />
-                  
-                  <input
-                    type="date"
-                    className="create-input"
-                    style={{ flex: "0 0 150px" }}
-                    value={newBoardDeadline}
-                    onChange={e => setNewBoardDeadline(e.target.value)}
-                  />
-
-                  <button className="btn btn-teal" onClick={handleCreateBoard} disabled={creating || !newBoardName.trim() || !newBoardDeadline}>
-                    {creating ? "Creating…" : "Create"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {boards.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">🗂️</div>
               <h3>No boards yet</h3>
-              <p>{isTeamLead ? "Create your first board above to get started." : "You haven't been added to any boards yet."}</p>
+              <p>{isTeamLead ? "Create your first board using the button above." : "You haven't been added to any boards yet."}</p>
             </div>
           ) : (
             <>
               <div className="section-label">All boards — {boards.length}</div>
               <div className="boards-grid">
-                
                 {sortedBoards.map((board, i) => {
                   const gradient = getBoardGradient(board.id);
-                  const firstLetter = (board.name || "U")[0].toUpperCase();
-
                   let daysLeft = null;
                   let badgeStyle = { bg: "#f1f5f9", text: "#64748b", icon: "📅", label: board.dueDate || "No deadline" };
                   
@@ -604,7 +539,6 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                     const due = new Date(board.dueDate);
                     const today = new Date();
                     daysLeft = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-
                     if (daysLeft < 0) {
                       badgeStyle = { bg: "#fee2e2", text: "#b91c1c", icon: "🔥", label: `Overdue by ${Math.abs(daysLeft)}d` };
                     } else if (daysLeft <= 2) {
@@ -615,23 +549,12 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                   }
 
                   return (
-                    <div
-                      key={board.id}
-                      className="board-card"
-                      style={{ animationDelay: `${i * 70}ms` }}
-                      onClick={() => onSelectBoard(board.id)}
-                    >
+                    <div key={board.id} className="board-card" style={{ animationDelay: `${i * 70}ms` }} onClick={() => onSelectBoard(board.id)}>
                       <div className="board-card-banner" style={{ background: gradient }}>
-                        
                         {isTeamLead && (
                           <button 
                             onClick={(e) => handleDeleteBoard(e, board.id, board.name)}
-                            style={{ 
-                              position: 'absolute', top: 12, left: 12, 
-                              background: 'rgba(0,0,0,0.3)', border: 'none', borderRadius: 6, color: 'white', 
-                              padding: '4px 8px', cursor: 'pointer', zIndex: 10, fontSize: 12, backdropFilter: 'blur(4px)',
-                              transition: '0.2s'
-                            }}
+                            style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.3)', border: 'none', borderRadius: 6, color: 'white', padding: '6px 8px', cursor: 'pointer', zIndex: 10, fontSize: 14, backdropFilter: 'blur(4px)', transition: '0.2s' }}
                             title="Delete Board"
                             onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.9)'}
                             onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.3)'}
@@ -639,23 +562,21 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                             🗑️
                           </button>
                         )}
-
-                        <span className="board-card-banner-letter">{firstLetter}</span>
-                        <span className="board-name-badge">Board</span>
+                        <div className="board-card-title-white">{board.name || "Unnamed Board"}</div>
+                        <span className="board-name-badge">Workspace</span>
                       </div>
+                      
                       <div className="board-card-body">
-                        <div className="board-card-title">{board.name || "Unnamed Board"}</div>
                         <div className="board-card-meta">
                           <span>🕐 {formatDate(board.createdAt)}</span>
                           <span className="meta-dot" />
-                          <span>{board.owner === user.email ? "Owned by you" : board.owner}</span>
+                          <span>{board.owner === user.email ? "Owned by you" : "Shared project"}</span>
                         </div>
-
-                        <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: badgeStyle.bg, color: badgeStyle.text }}>
+                        <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: badgeStyle.bg, color: badgeStyle.text }}>
                           {badgeStyle.icon} {badgeStyle.label}
                         </div>
-
                       </div>
+                      
                       <div className="board-card-footer">
                         <div style={{ display: "flex", alignItems: "center" }}>
                           <div className="member-stack">
