@@ -4,16 +4,12 @@ import { db } from "./firebase";
 import { ref, onValue, set, push } from "firebase/database";
 
 import Presence from "./Presence";
-
-// We ONLY import the external modals to prevent duplicate identifier errors
 import AnalyticsModal from "./components/modals/AnalyticsModal"; 
 import CardDetailModal from "./components/modals/CardDetailModal";
 import ChatFeed from "./components/modals/ChatFeed";
 
-// ─── Constants & Configurations ───────────────────────────────────────────────
 const ACCENT = "#0d9488";
 
-// Slate-100 columns separate nicely from the Slate-50 board background
 const COLUMN_COLORS = {
   todo:       { theme: "#8b5cf6", bg: "#f1f5f9" },
   inprogress: { theme: "#f59e0b", bg: "#f1f5f9" },
@@ -71,8 +67,6 @@ function getPriority(card) {
   return card.priority || "medium";
 }
 
-// ─── Internal Components ──────────────────────────────────────────────────────
-
 function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
   const [hovered, setHovered] = useState(false);
   const priority = getPriority(card);
@@ -122,7 +116,6 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
               )}
               <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.5, marginBottom: 14, paddingRight: 24 }}>{card.text}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                
                 {card.dueDate && (
                   <span style={{ 
                     fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6, 
@@ -133,7 +126,6 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
                     {isDone ? "✅" : isOverdue ? "⚠️" : "📅"} {card.dueDate}
                   </span>
                 )}
-
                 {card.assignee && (
                   <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
                     <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "white" }}>
@@ -302,12 +294,39 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showInvite, setShowInvite]   = useState(false);
   
+  // NEW STATE ADDED HERE
+  const [sendingDigest, setSendingDigest] = useState(false);
+  
   const [activities, setActivities]   = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [search, setSearch]           = useState("");
   const [filterLabel, setFilterLabel] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+
+  // THIS IS THE REAL FUNCTION THAT CALLS YOUR SERVER
+  const handleSendDigest = async () => {
+    if (!boardId) return;
+    setSendingDigest(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ boardId: boardId, boardName: boardInfo?.name || "Project" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("✅ Digest sent successfully!");
+      } else {
+        alert(`❌ Error: ${data.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("❌ Failed to send digest. Ensure backend is running on port 5000.");
+    } finally {
+      setSendingDigest(false);
+    }
+  };
 
   useEffect(() => { const t = setTimeout(() => setMounted(true), 60); return () => clearTimeout(t); }, []);
 
@@ -513,14 +532,20 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                <Presence user={user} boardId={boardId} />
             </div>
 
-            {/* ---> NEW: TEAM LEAD DIGEST BUTTON <--- */}
+            {/* ---> FIXED BUTTON USING handleSendDigest <--- */}
             {isTeamLead && (
-              <button onClick={() => alert(`Sending team digest for project: ${boardInfo?.name}...`)} style={{
-                padding: "8px 16px", background: "#4f46e5", color: "white", border: "none",
-                borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
-                display: "flex", alignItems: "center", gap: 6, transition: "0.2s", boxShadow: "0 4px 6px rgba(79, 70, 229, 0.3)"
-              }} onMouseEnter={e => e.currentTarget.style.background = "#4338ca"} onMouseLeave={e => e.currentTarget.style.background = "#4f46e5"}>
-                📧 Team Lead Digest
+              <button 
+                onClick={handleSendDigest} 
+                disabled={sendingDigest}
+                style={{
+                  padding: "8px 16px", background: sendingDigest ? "#6366f1" : "#4f46e5", color: "white", border: "none",
+                  borderRadius: 8, cursor: sendingDigest ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
+                  display: "flex", alignItems: "center", gap: 6, transition: "0.2s", boxShadow: "0 4px 6px rgba(79, 70, 229, 0.3)"
+                }} 
+                onMouseEnter={e => { if(!sendingDigest) e.currentTarget.style.background = "#4338ca" }} 
+                onMouseLeave={e => { if(!sendingDigest) e.currentTarget.style.background = "#4f46e5" }}
+              >
+                {sendingDigest ? "⏳ Sending..." : "📧 Team Lead Digest"}
               </button>
             )}
 

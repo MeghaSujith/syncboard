@@ -4,33 +4,43 @@ const dotenv = require("dotenv");
 const { exec } = require('child_process');
 const path = require('path');
 
-dotenv.config();
+// 1. Explicitly load .env from the backend directory
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-app.use(cors());
+
+// 2. Configure CORS to explicitly allow your React frontend
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["POST", "GET"],
+  credentials: true
+}));
+
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.json({ message: "SyncBoard backend is running!" });
-});
-
-const authRoutes = require("./routes/auth");
-app.use("/auth", authRoutes);
-
 app.post("/api/digest", (req, res) => {
-  const boardId = req.body.boardId || null;
+  // 3. Ensure we are correctly pulling data from the request body
+  const { boardId, boardName } = req.body;
+  
+  if (!boardId) {
+    return res.status(400).json({ error: "Board ID is required" });
+  }
+
   const scriptPath = path.join(__dirname, 'digest.py');
-  const command = boardId
-    ? `python "${scriptPath}" --board ${boardId}`
-    : `python "${scriptPath}"`;
+  
+  // Use a cleaner command structure
+  const command = `python "${scriptPath}" --board ${boardId}`;
+
+  console.log(`Executing: ${command}`);
 
   exec(command, (error, stdout, stderr) => {
     if (error) {
-      console.error("Digest error:", error);
-      return res.status(500).json({ error: "Failed to run digest" });
+      console.error("Python Execution Error:", error);
+      console.error("Stderr Details:", stderr);
+      return res.status(500).json({ error: stderr || "Failed to run digest" });
     }
-    console.log(stdout);
-    res.json({ message: "Digest sent successfully!", output: stdout });
+    console.log("Python Output:", stdout);
+    res.json({ message: `Digest for ${boardName} processed!`, output: stdout });
   });
 });
 
