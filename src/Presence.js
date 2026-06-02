@@ -15,26 +15,75 @@ function getColor(email) {
   return colors[Math.abs(hash) % colors.length];
 }
 
+
+
+function Avatar({ email, size = 32 }) {
+  const [gravatarUrl, setGravatarUrl] = useState(null);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    if (!email) return;
+    // Use DiceBear API for consistent, beautiful avatars based on email
+    const seed = encodeURIComponent(email);
+    setGravatarUrl(`https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=0052cc,ff5630,36b37e,6554c0,ff8b00,00b8d9&backgroundType=gradientLinear&fontSize=38&fontWeight=700`);
+  }, [email]);
+
+  if (gravatarUrl && !imgError) {
+    return (
+      <img
+        src={gravatarUrl}
+        alt={email}
+        onError={() => setImgError(true)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          border: "2px solid white",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          objectFit: "cover",
+        }}
+      />
+    );
+  }
+
+  return (
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: "50%",
+      background: getColor(email),
+      color: "white",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: size * 0.35,
+      fontWeight: "bold",
+      border: "2px solid white",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+    }}>
+      {getInitials(email)}
+    </div>
+  );
+}
+
 function Presence({ user, boardId }) {
   const [activeUsers, setActiveUsers] = useState({});
 
   useEffect(() => {
     if (!user) return;
 
-   const userPresenceRef = ref(db, `presence/${boardId}/${user.uid}`);
-const allPresenceRef = ref(db, `presence/${boardId}`);
+    const userPresenceRef = ref(db, `presence/${boardId}/${user.uid}`);
+    const allPresenceRef = ref(db, `presence/${boardId}`);
 
-    // Set this user as online
     set(userPresenceRef, {
       email: user.email,
       uid: user.uid,
       online: true,
+      photoURL: user.photoURL || null,
     });
 
-    // Automatically remove when browser closes or disconnects
     onDisconnect(userPresenceRef).remove();
 
-    // Listen to all active users
     const unsubscribe = onValue(allPresenceRef, (snapshot) => {
       if (snapshot.exists()) {
         setActiveUsers(snapshot.val());
@@ -45,7 +94,6 @@ const allPresenceRef = ref(db, `presence/${boardId}`);
 
     return () => {
       unsubscribe();
-      // Don't remove presence here — onDisconnect handles it
     };
   }, [user, boardId]);
 
@@ -57,31 +105,32 @@ const allPresenceRef = ref(db, `presence/${boardId}`);
       <span style={{ fontSize: "12px", color: "#666", marginRight: "4px" }}>
         Active:
       </span>
-      {users.map((u) => (
-        <div
-          key={u.uid}
-          title={u.email}
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "50%",
-            background: getColor(u.email),
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "12px",
-            fontWeight: "bold",
-            cursor: "default",
-            border: "2px solid white",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-          }}
-        >
-          {getInitials(u.email)}
-        </div>
-      ))}
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {users.map((u, index) => (
+          <div
+            key={u.uid}
+            title={u.email}
+            style={{
+              marginLeft: index > 0 ? "-8px" : "0",
+              zIndex: users.length - index,
+              cursor: "default",
+              transition: "transform 0.2s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
+            onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+          >
+            <Avatar email={u.email} size={32} />
+          </div>
+        ))}
+      </div>
+      {users.length > 1 && (
+        <span style={{ fontSize: "11px", color: "#666", marginLeft: "6px" }}>
+          {users.length} online
+        </span>
+      )}
     </div>
   );
 }
 
+export { Avatar, getColor, getInitials };
 export default Presence;

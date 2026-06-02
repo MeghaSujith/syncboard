@@ -2,10 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
 import { ref, onValue, set } from "firebase/database";
 
-const ACCENT = "#0d9488";
-const ACCENT_DARK = "#0f766e";
-const ACCENT_LIGHT = "#f0fdfa";
-
 const BOARD_GRADIENTS = [
   "linear-gradient(135deg, #0d9488, #0ea5e9)",
   "linear-gradient(135deg, #8b5cf6, #6366f1)",
@@ -216,9 +212,9 @@ function StatPopover({ type, boards, userEmail }) {
       overflowY: "auto",
       animation: "popoverIn 0.18s ease",
     }}>
-      {/* arrow */}
+      {/* arrow - Fixed duplicate transform warning */}
       <div style={{
-        position: "absolute", top: -6, left: "50%", transform: "translateX(-50%)",
+        position: "absolute", top: -6, left: "50%", 
         width: 12, height: 12, background: "white",
         border: "1px solid #e2e8f0", borderRight: "none", borderBottom: "none",
         transform: "translateX(-50%) rotate(45deg)",
@@ -228,7 +224,7 @@ function StatPopover({ type, boards, userEmail }) {
   );
 }
 
-export default function Boards({ user, onSelectBoard, onLogout }) {
+export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
   const [boards, setBoards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newBoardName, setNewBoardName] = useState("");
@@ -236,10 +232,12 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
   const [sendingDigest, setSendingDigest] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  // ─── NEW: track which stat card is hovered ────────────────────────────────
   const [hoveredStat, setHoveredStat] = useState(null);
   const hoverTimeoutRef = useRef(null);
   const inputRef = useRef(null);
+
+  // ---> DYNAMIC TEAM LEAD CHECK (Using safe userRole prop) <---
+  const isTeamLead = userRole === "team_lead";
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -308,7 +306,6 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
     }
   }
 
-  // ─── Hover handlers with a small delay to avoid flicker ──────────────────
   function handleStatMouseEnter(type) {
     clearTimeout(hoverTimeoutRef.current);
     setHoveredStat(type);
@@ -551,11 +548,23 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
             <span className="nav-title">SyncBoard</span>
           </div>
           <div className="nav-right">
+            {/* NEW: Team Lead Badge */}
+            {isTeamLead && (
+              <div style={{ marginRight: 8, padding: "4px 8px", background: "#fef08a", color: "#854d0e", borderRadius: 6, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                Team Lead
+              </div>
+            )}
+            
             <div className="avatar">{getInitials(user.email)}</div>
             <span className="user-email">{user.email}</span>
-            <button className="btn btn-ghost" onClick={handleSendDigest} disabled={sendingDigest}>
-              {sendingDigest ? "Sending…" : "📧 Send Digest"}
-            </button>
+            
+            {/* THIS BUTTON IS STRICTLY HIDDEN FROM MEMBERS */}
+            {isTeamLead && (
+              <button className="btn btn-ghost" onClick={handleSendDigest} disabled={sendingDigest}>
+                {sendingDigest ? "Sending…" : "📧 Send Digest"}
+              </button>
+            )}
+            
             <button className="btn btn-danger" onClick={onLogout}>Sign out</button>
           </div>
         </nav>
@@ -567,15 +576,17 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
               <h2>Welcome back, {user.displayName || user.email.split("@")[0]} 👋</h2>
               <p>You have {boards.length} board{boards.length !== 1 ? "s" : ""} — pick up where you left off.</p>
             </div>
-            <button className="hero-btn" onClick={() => setShowCreate(s => !s)}>
-              <span style={{ fontSize: "18px", lineHeight: 1 }}>+</span> New Board
-            </button>
+            {/* HIDE NEW BOARD BUTTON FROM MEMBERS */}
+            {isTeamLead && (
+              <button className="hero-btn" onClick={() => setShowCreate(s => !s)}>
+                <span style={{ fontSize: "18px", lineHeight: 1 }}>+</span> New Board
+              </button>
+            )}
           </div>
 
-          {/* ─── Stats Row with hover popovers ─────────────────────────── */}
+          {/* ─── Stats Row ─────────────────────────── */}
           <div className="stats-row">
 
-            {/* Total Boards */}
             <div
               className="stat-card"
               onMouseEnter={() => handleStatMouseEnter("boards")}
@@ -592,7 +603,6 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
               )}
             </div>
 
-            {/* Collaborators */}
             <div
               className="stat-card"
               onMouseEnter={() => handleStatMouseEnter("collaborators")}
@@ -609,7 +619,6 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
               )}
             </div>
 
-            {/* Active Today */}
             <div
               className="stat-card"
               onMouseEnter={() => handleStatMouseEnter("active")}
@@ -629,39 +638,43 @@ export default function Boards({ user, onSelectBoard, onLogout }) {
           </div>
           {/* ─────────────────────────────────────────────────────────────── */}
 
-          <div className="create-panel">
-            <div className="create-header" onClick={() => setShowCreate(s => !s)}>
-              <div className="create-header-left">
-                <div className="create-plus-icon">+</div>
-                <div>
-                  <div className="create-title">Create a new board</div>
-                  <div className="create-sub">Start a fresh project workspace</div>
+          {/* HIDE CREATE PANEL ENTIRELY FROM MEMBERS */}
+          {isTeamLead && (
+            <div className="create-panel">
+              <div className="create-header" onClick={() => setShowCreate(s => !s)}>
+                <div className="create-header-left">
+                  <div className="create-plus-icon">+</div>
+                  <div>
+                    <div className="create-title">Create a new board</div>
+                    <div className="create-sub">Start a fresh project workspace</div>
+                  </div>
+                </div>
+                <span className={`create-chevron${showCreate ? " open" : ""}`}>›</span>
+              </div>
+              <div className={`create-body${showCreate ? " open" : ""}`}>
+                <div className="create-input-row">
+                  <input
+                    ref={inputRef}
+                    className="create-input"
+                    value={newBoardName}
+                    onChange={e => setNewBoardName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleCreateBoard()}
+                    placeholder="e.g. Q3 Product Roadmap"
+                  />
+                  <button className="btn btn-teal" onClick={handleCreateBoard} disabled={creating || !newBoardName.trim()}>
+                    {creating ? "Creating…" : "Create"}
+                  </button>
                 </div>
               </div>
-              <span className={`create-chevron${showCreate ? " open" : ""}`}>›</span>
             </div>
-            <div className={`create-body${showCreate ? " open" : ""}`}>
-              <div className="create-input-row">
-                <input
-                  ref={inputRef}
-                  className="create-input"
-                  value={newBoardName}
-                  onChange={e => setNewBoardName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleCreateBoard()}
-                  placeholder="e.g. Q3 Product Roadmap"
-                />
-                <button className="btn btn-teal" onClick={handleCreateBoard} disabled={creating || !newBoardName.trim()}>
-                  {creating ? "Creating…" : "Create"}
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
 
           {boards.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">🗂️</div>
               <h3>No boards yet</h3>
-              <p>Create your first board above to get started.</p>
+              {/* UPDATE EMPTY STATE MESSAGE FOR MEMBERS */}
+              <p>{isTeamLead ? "Create your first board above to get started." : "You haven't been added to any boards yet."}</p>
             </div>
           ) : (
             <>

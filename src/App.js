@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { auth } from "./firebase";
+import { auth, db } from "./firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { ref, onValue } from "firebase/database"; // CHANGED: get to onValue
 import Auth from "./Auth";
 import Board from "./Board";
 import Boards from "./Boards";
@@ -17,16 +18,41 @@ const transitionStyle = `
 
 function App() {
   const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState("member"); 
   const [authLoading, setAuthLoading] = useState(true);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      setAuthLoading(false);
-      if (!firebaseUser) setSelectedBoardId(null);
+    let roleUnsubscribe; // We need this to stop listening when the user logs out
+
+    const authUnsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+
+        // NEW LOGIC: Use onValue instead of get() to constantly listen for role changes
+        const userRef = ref(db, `users/${firebaseUser.uid}`);
+        roleUnsubscribe = onValue(userRef, (snapshot) => {
+          if (snapshot.exists() && snapshot.val().role) {
+            setUserRole(snapshot.val().role);
+          } else {
+            setUserRole("member");
+          }
+          setAuthLoading(false); // Only stop loading once we know their role
+        });
+
+      } else {
+        setUserRole("member");
+        setUser(null);
+        setSelectedBoardId(null);
+        setAuthLoading(false);
+        if (roleUnsubscribe) roleUnsubscribe(); // Stop listening to DB
+      }
     });
-    return () => unsubscribe();
+
+    return () => {
+      authUnsubscribe();
+      if (roleUnsubscribe) roleUnsubscribe();
+    };
   }, []);
 
   function handleLogout() {
@@ -59,12 +85,14 @@ function App() {
         ) : !selectedBoardId ? (
           <Boards
             user={user}
+            userRole={userRole} 
             onSelectBoard={setSelectedBoardId}
             onLogout={handleLogout}
           />
         ) : (
           <Board
             user={user}
+            userRole={userRole} 
             boardId={selectedBoardId}
             onLogout={handleLogout}
             onBack={() => setSelectedBoardId(null)}
