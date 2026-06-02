@@ -79,7 +79,6 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
   const pc = PRIORITY_CONFIG[priority];
   const labels = card.labels || [];
   
-  // ---> NEW FIXED DATE LOGIC <---
   const isDone = colId === "done";
   const isOverdue = !isDone && card.dueDate && new Date(card.dueDate) < new Date();
 
@@ -124,7 +123,6 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
               <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.5, marginBottom: 14, paddingRight: 24 }}>{card.text}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 
-                {/* ---> UPDATED DUE DATE BADGE <--- */}
                 {card.dueDate && (
                   <span style={{ 
                     fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6, 
@@ -291,7 +289,6 @@ function InviteModal({ boardInfo, boardId, onClose }) {
 // ─── Main Board Component ─────────────────────────────────────────────────────
 function Board({ user, userRole, boardId, onLogout, onBack }) {
   
-  // ---> DYNAMIC TEAM LEAD CHECK <---
   const isTeamLead = userRole === "team_lead";
 
   const [data, setData]               = useState(null);
@@ -300,7 +297,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [isOnline, setIsOnline]       = useState(navigator.onLine);
   const [mounted, setMounted]         = useState(false);
   
-  // ---> CHAT STATE <---
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false); 
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -451,7 +447,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
           font-family: 'Plus Jakarta Sans', sans-serif; 
-          background-color: #f8fafc; /* Slate 50 - Very clean board background */
+          background-color: #f8fafc; 
           background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
           background-size: 24px 24px;
         }
@@ -466,8 +462,15 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       `}</style>
 
-      <div className={`board-root${mounted ? " mounted" : ""}`} style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-
+      {/* ---> NEW: DYNAMIC FLEX WRAPPER FOR SIDE-BY-SIDE LAYOUT <--- */}
+      <div 
+        className={`board-root${mounted ? " mounted" : ""}`} 
+        style={{ 
+          minHeight: "100vh", display: "flex", flexDirection: "column",
+          transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          marginRight: showChat ? 380 : showActivity ? 360 : 0 
+        }}
+      >
         {!isOnline && (
           <div style={{ background: "#ef4444", color: "white", padding: "10px 24px", textAlign: "center", fontSize: 15, fontWeight: 600 }}>
             ⚡ You're offline — changes will sync when reconnected
@@ -510,13 +513,14 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                <Presence user={user} boardId={boardId} />
             </div>
 
+            {/* ---> NEW: TEAM LEAD DIGEST BUTTON <--- */}
             {isTeamLead && (
-              <button onClick={() => alert("Opening Management Console: Fetching global board data...")} style={{
+              <button onClick={() => alert(`Sending team digest for project: ${boardInfo?.name}...`)} style={{
                 padding: "8px 16px", background: "#4f46e5", color: "white", border: "none",
                 borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
                 display: "flex", alignItems: "center", gap: 6, transition: "0.2s", boxShadow: "0 4px 6px rgba(79, 70, 229, 0.3)"
               }} onMouseEnter={e => e.currentTarget.style.background = "#4338ca"} onMouseLeave={e => e.currentTarget.style.background = "#4f46e5"}>
-                👑 Manager Console
+                📧 Team Lead Digest
               </button>
             )}
 
@@ -528,8 +532,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               📊 Analytics
             </button>
 
-            {/* ---> NEW CHAT BUTTON <--- */}
-            <button onClick={() => setShowChat(s => !s)} style={{
+            <button onClick={() => { setShowChat(s => !s); setShowActivity(false); }} style={{
               padding: "8px 16px",
               background: showChat ? "#0d9488" : "#1e293b",
               color: showChat ? "white" : "#e2e8f0",
@@ -540,7 +543,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               💬 Team Chat
             </button>
 
-            <button onClick={() => setShowActivity(s => !s)} style={{
+            <button onClick={() => { setShowActivity(s => !s); setShowChat(false); }} style={{
               padding: "8px 16px",
               background: showActivity ? "#0d9488" : "#1e293b",
               color: showActivity ? "white" : "#e2e8f0",
@@ -679,14 +682,13 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
             logActivity={logActivity}
           />
         )}
-        {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}
-        
-        {/* ---> CHAT FEED COMPONENT PASSED USERROLE <--- */}
-        {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} onClose={() => setShowChat(false)} />} 
-        
-        {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
-        {showInvite && <InviteModal boardInfo={boardInfo} boardId={boardId} onClose={() => setShowInvite(false)} />}
       </div>
+
+      {/* MODALS RENDER OUTSIDE THE SHRINKING WRAPPER SO THEY STAY FIXED */}
+      {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}
+      {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} onClose={() => setShowChat(false)} />} 
+      {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
+      {showInvite && <InviteModal boardInfo={boardInfo} boardId={boardId} onClose={() => setShowInvite(false)} />}
     </>
   );
 }
