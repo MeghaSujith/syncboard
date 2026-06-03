@@ -6,7 +6,6 @@ import Auth from "./Auth";
 import Board from "./Board";
 import Boards from "./Boards";
 
-// 10/10 UI Polish: Added fluid cubic-bezier easing, global font smoothing, and cinematic film grain.
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   
@@ -75,7 +74,6 @@ function App() {
           } else {
             setUserRole("member");
           }
-          // Slight delay on loading false to ensure smooth transition
           setTimeout(() => setAuthLoading(false), 300); 
         });
 

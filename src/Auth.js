@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { auth, googleProvider, db } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInWithPopup } from "firebase/auth";
-import { ref, set, get } from "firebase/database";
+import { ref as dbRef, set, get } from "firebase/database";
 
 const CAROUSEL_IMAGES = [
   {
@@ -29,12 +29,15 @@ const CAROUSEL_IMAGES = [
 const ACCENT = "#0d9488";
 const ACCENT_LIGHT = "#ccfbf1";
 
+const RequiredStar = () => <span style={{ color: "#ef4444", marginLeft: "4px" }}>*</span>;
+
 function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState("member");
+  const [file, setFile] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -61,13 +64,14 @@ function Auth() {
     setGoogleLoading(true);
     try {
       const cred = await signInWithPopup(auth, googleProvider);
-      const userRef = ref(db, `users/${cred.user.uid}`);
-      const snapshot = await get(userRef);
+      const userDocRef = dbRef(db, `users/${cred.user.uid}`);
+      const snapshot = await get(userDocRef);
       if (!snapshot.exists()) {
-        await set(userRef, {
+        await set(userDocRef, {
           email: cred.user.email,
           name: cred.user.displayName || "Google User",
-          role: "member"
+          role: "member",
+          photoURL: cred.user.photoURL || "",
         });
       }
     } catch (err) {
@@ -80,44 +84,83 @@ function Auth() {
 
   async function handleSubmit() {
     setError("");
-    if (!email || !password) return setError("Please fill in all fields");
-    if (!isValidEmail(email)) return setError("Please enter a valid email address");
-    if (!isLogin && !isPasswordStrong(password)) return setError("Password must be at least 8 characters");
-    if (!isLogin && !name.trim()) return setError("Please enter your name");
+
+    if (!email || !password) return setError("Please fill in all required fields.");
+    if (!isValidEmail(email)) return setError("Please enter a valid email address.");
+
+    if (!isLogin) {
+      if (!name.trim()) return setError("Please enter your full name.");
+      if (!isPasswordStrong(password)) return setError("Password must be at least 8 characters.");
+    }
 
     setLoading(true);
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
+        // Step 1: Create user in Firebase Auth
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(cred.user, { displayName: name.trim() });
-        await set(ref(db, `users/${cred.user.uid}`), {
+        console.log("✅ Auth created, UID:", cred.user.uid);
+
+        // Step 2: Handle profile photo
+        let finalPhotoUrl = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
+
+        if (file) {
+          if (file.size > 200 * 1024) {
+            setLoading(false);
+            return setError("Profile photo must be under 200KB.");
+          }
+          try {
+            finalPhotoUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            console.log("✅ Photo converted to base64");
+          } catch (err) {
+            console.error("❌ Photo read failed:", err);
+          }
+        }
+
+        // Step 3: Update Firebase Auth profile
+        await updateProfile(cred.user, {
+  displayName: name.trim(),
+  // don't set photoURL here — base64 is too long for Firebase Auth
+});
+        console.log("✅ Auth profile updated, displayName:", name.trim());
+
+        // Step 4: Save to Realtime Database
+        await set(dbRef(db, `users/${cred.user.uid}`), {
           email: email.trim(),
           name: name.trim(),
-          role: role 
+          role: role,
+          photoURL: finalPhotoUrl,
         });
+        console.log("✅ DB write done, name saved:", name.trim());
       }
     } catch (err) {
+      console.error("❌ Registration error:", err);
       const msgs = {
         "auth/user-not-found": "No account found with this email",
         "auth/wrong-password": "Incorrect password. Please try again",
         "auth/invalid-credential": "Invalid email or password",
         "auth/email-already-in-use": "An account with this email already exists",
-        "auth/weak-password": "Password should be at least 8 characters",
-        "auth/invalid-email": "Please enter a valid email address",
       };
       setError(msgs[err.code] || err.message);
     }
     setLoading(false);
   }
 
-  const handleKeyPress = (e) => { if (e.key === "Enter") handleSubmit(); };
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") handleSubmit();
+  };
+
   const current = CAROUSEL_IMAGES[slide];
 
   const styles = {
     container: { display: "flex", height: "100vh", width: "100%", overflow: "hidden", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: "#f8fafc" },
-    left: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px", overflowY: "auto", zIndex: 1 },
+    left: { width: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px", overflowY: "auto", zIndex: 1 },
     formWrapper: { width: "100%", maxWidth: "420px", margin: "auto" },
     logo: { textAlign: "center", marginBottom: "20px" },
     logoIcon: { width: "56px", height: "56px", background: ACCENT, borderRadius: "14px", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: "12px", boxShadow: "0 4px 14px rgba(13,148,136,0.3)" },
@@ -137,13 +180,14 @@ function Auth() {
     toggleSpan: { color: ACCENT, cursor: "pointer", fontWeight: "700" },
     features: { display: "flex", justifyContent: "center", gap: "24px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid rgba(226, 232, 240, 0.8)" },
     featureItem: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#64748b", fontWeight: "600" },
-    right: { flex: 1, position: "relative", overflow: "hidden" },
+    right: { width: "50%", position: "relative", overflow: "hidden" },
     imgEl: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "opacity 0.6s ease", opacity: fading ? 0 : 1 },
-    rightContentContainer: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "48px", color: "white", zIndex: 2, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)", backdropFilter: "blur(2px)" },
+    mergeMask: { position: "absolute", left: 0, top: 0, bottom: 0, width: "30%", background: "linear-gradient(to right, #f8fafc 0%, transparent 100%)", zIndex: 1 },
+    rightContentContainer: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "48px", color: "white", zIndex: 2 },
     rightHeading: { fontSize: "32px", fontWeight: "800", margin: "0 0 12px", lineHeight: 1.2, letterSpacing: "-0.5px" },
-    rightSub: { fontSize: "16px", lineHeight: 1.6, color: "rgba(255,255,255,0.9)", margin: "0 0 28px", fontWeight: "400" },
+    rightSub: { fontSize: "16px", lineHeight: 1.6, color: "rgba(255,255,255,0.85)", margin: "0 0 28px", fontWeight: "400", textShadow: "0 2px 4px rgba(0,0,0,0.5)" },
     dots: { display: "flex", gap: "8px" },
-    dot: (active) => ({ width: active ? "24px" : "8px", height: "8px", borderRadius: "4px", background: active ? "white" : "rgba(255,255,255,0.5)", cursor: "pointer", transition: "all 0.3s", border: "none", padding: 0 }),
+    dot: (active) => ({ width: active ? "24px" : "8px", height: "8px", borderRadius: "4px", background: active ? "white" : "rgba(255,255,255,0.3)", cursor: "pointer", transition: "all 0.3s", border: "none", padding: 0 }),
   };
 
   return (
@@ -152,50 +196,156 @@ function Auth() {
         <div style={styles.formWrapper}>
           <div style={styles.logo}>
             <div style={styles.logoIcon}>
-              <svg style={styles.logoSvg} viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="14" y="3" width="7" height="10" rx="1.5"/><rect x="14" y="17" width="7" height="4" rx="1.5"/></svg>
+              <svg style={styles.logoSvg} viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="18" rx="1.5" />
+                <rect x="14" y="3" width="7" height="10" rx="1.5" />
+                <rect x="14" y="17" width="7" height="4" rx="1.5" />
+              </svg>
             </div>
             <h1 style={styles.logoText}>SyncBoard</h1>
           </div>
+
           <p style={styles.tagline}>Real-time collaborative Kanban for teams</p>
+
           <div style={styles.tabs}>
-            <button style={styles.tab(isLogin)} onClick={() => { setIsLogin(true); setError(""); }}>Login</button>
-            <button style={styles.tab(!isLogin)} onClick={() => { setIsLogin(false); setError(""); }}>Register</button>
+            <button style={styles.tab(isLogin)} onClick={() => { setIsLogin(true); setError(""); setFile(null); }}>Login</button>
+            <button style={styles.tab(!isLogin)} onClick={() => { setIsLogin(false); setError(""); setFile(null); }}>Register</button>
           </div>
-          <button onClick={handleGoogleSignIn} disabled={googleLoading || loading} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #e2e8f0", background: "white", fontSize: "14px", fontWeight: "700", cursor: googleLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "20px", color: "#334155", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", fontFamily: "inherit" }}>
-            {googleLoading ? <span style={{ color: "#64748b" }}>Signing in...</span> : <>
-              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-              Continue with Google</>}
+
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading || loading}
+            style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #e2e8f0", background: "white", fontSize: "14px", fontWeight: "700", cursor: googleLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "20px", color: "#334155", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", fontFamily: "inherit" }}
+            onMouseEnter={e => { if (!googleLoading) { e.currentTarget.style.borderColor = "#4285f4"; e.currentTarget.style.background = "#f8fafc"; } }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "white"; }}
+          >
+            {googleLoading ? <span style={{ color: "#64748b" }}>Signing in...</span> : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                  <path fill="none" d="M0 0h48v48H0z" />
+                </svg>
+                Continue with Google
+              </>
+            )}
           </button>
+
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
             <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
             <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>or continue with email</span>
             <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
           </div>
-          {error && <div style={styles.errorBox}>{error}</div>}
+
+          {error && (
+            <div style={styles.errorBox}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              {error}
+            </div>
+          )}
+
           {!isLogin && (
             <>
-              <div style={styles.inputGroup}><label style={styles.label}>Full Name</label><div style={styles.inputWrapper}><span style={styles.inputIcon(focusedField === "name")}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span><input type="text" placeholder="Jane Smith" value={name} onChange={(e) => setName(e.target.value)} onFocus={() => setFocusedField("name")} onBlur={() => setFocusedField("")} onKeyPress={handleKeyPress} style={styles.input(focusedField === "name")} /></div></div>
-              <div style={styles.inputGroup}><label style={styles.label}>Account Role</label><div style={styles.inputWrapper}><span style={styles.inputIcon(focusedField === "role")}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></span><select value={role} onChange={(e) => setRole(e.target.value)} onFocus={() => setFocusedField("role")} onBlur={() => setFocusedField("")} style={{...styles.input(focusedField === "role"), cursor: "pointer", appearance: "none"}}><option value="member">Team Member</option><option value="team_lead">Team Lead</option></select></div></div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Full Name <RequiredStar /></label>
+                <div style={styles.inputWrapper}>
+                  <span style={styles.inputIcon(focusedField === "name")}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                  </span>
+                  <input type="text" placeholder="Jane Smith" value={name} onChange={(e) => setName(e.target.value)} onFocus={() => setFocusedField("name")} onBlur={() => setFocusedField("")} onKeyPress={handleKeyPress} style={styles.input(focusedField === "name")} />
+                </div>
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Account Role <RequiredStar /></label>
+                <div style={styles.inputWrapper}>
+                  <span style={styles.inputIcon(focusedField === "role")}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+                  </span>
+                  <select value={role} onChange={(e) => setRole(e.target.value)} onFocus={() => setFocusedField("role")} onBlur={() => setFocusedField("")} style={{ ...styles.input(focusedField === "role"), cursor: "pointer", appearance: "none" }}>
+                    <option value="member">Team Member</option>
+                    <option value="team_lead">Team Lead</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Profile Picture <span style={{ color: "#94a3b8", fontWeight: 500, fontSize: 12 }}>(Optional — max 200KB)</span></label>
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <input type="file" accept="image/*" id="file-upload" onChange={(e) => setFile(e.target.files[0])} style={{ display: "none" }} />
+                  <label
+                    htmlFor="file-upload"
+                    style={{ ...styles.input(focusedField === "file"), cursor: "pointer", display: "flex", alignItems: "center", paddingLeft: "42px", color: file ? "#0f172a" : "#94a3b8" }}
+                    onMouseEnter={() => setFocusedField("file")}
+                    onMouseLeave={() => setFocusedField("")}
+                  >
+                    <span style={styles.inputIcon(focusedField === "file")}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                    </span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                      {file ? file.name : "Choose an image from device..."}
+                    </span>
+                    {file && <span style={{ fontSize: "12px", color: ACCENT, fontWeight: "700", marginLeft: "8px" }}>✓ Selected</span>}
+                  </label>
+                </div>
+              </div>
             </>
           )}
-          <div style={styles.inputGroup}><label style={styles.label}>Email Address</label><div style={styles.inputWrapper}><span style={styles.inputIcon(focusedField === "email")}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span><input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={() => setFocusedField("email")} onBlur={() => setFocusedField("")} onKeyPress={handleKeyPress} style={styles.input(focusedField === "email")} /></div></div>
-          <div style={styles.inputGroup}><label style={styles.label}>Password</label><div style={styles.inputWrapper}><span style={styles.inputIcon(focusedField === "password")}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><input type="password" placeholder={isLogin ? "Enter your password" : "Min. 8 characters"} value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setFocusedField("password")} onBlur={() => setFocusedField("")} onKeyPress={handleKeyPress} style={styles.input(focusedField === "password")} /></div></div>
-          <button style={styles.submitBtn(loading)} onClick={handleSubmit} disabled={loading}>{loading ? "Please wait…" : isLogin ? "Sign In" : "Create Account"}</button>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email Address <RequiredStar /></label>
+            <div style={styles.inputWrapper}>
+              <span style={styles.inputIcon(focusedField === "email")}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+              </span>
+              <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={() => setFocusedField("email")} onBlur={() => setFocusedField("")} onKeyPress={handleKeyPress} style={styles.input(focusedField === "email")} />
+            </div>
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Password <RequiredStar /></label>
+            <div style={styles.inputWrapper}>
+              <span style={styles.inputIcon(focusedField === "password")}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              </span>
+              <input type="password" placeholder={isLogin ? "Enter your password" : "Min. 8 characters"} value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setFocusedField("password")} onBlur={() => setFocusedField("")} onKeyPress={handleKeyPress} style={styles.input(focusedField === "password")} />
+            </div>
+          </div>
+
+          <button style={styles.submitBtn(loading)} onClick={handleSubmit} disabled={loading}>
+            {loading ? "Please wait…" : isLogin ? "Sign In" : "Create Account"}
+          </button>
+
           <p style={styles.toggleText}>
             {isLogin ? "New to SyncBoard? " : "Already have an account? "}
-            <span style={styles.toggleSpan} onClick={() => { setIsLogin(!isLogin); setError(""); }}>
+            <span style={styles.toggleSpan} onClick={() => { setIsLogin(!isLogin); setError(""); setFile(null); }}>
               {isLogin ? "Create account" : "Sign in"}
             </span>
           </p>
+
           <div style={styles.features}>
-            <div style={styles.featureItem}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Real-time sync</div>
-            <div style={styles.featureItem}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Team collab</div>
-            <div style={styles.featureItem}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Secure</div>
+            <div style={styles.featureItem}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+              Real-time sync
+            </div>
+            <div style={styles.featureItem}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+              Team collab
+            </div>
+            <div style={styles.featureItem}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              Secure
+            </div>
           </div>
         </div>
       </div>
+
       <div style={styles.right}>
         <img src={current.url} alt="Team collaboration" style={styles.imgEl} key={slide} />
+        <div style={styles.mergeMask} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "40%", background: "linear-gradient(to top, rgba(2,15,25,0.75) 0%, transparent 100%)", zIndex: 1 }} />
         <div style={styles.rightContentContainer}>
           <h2 style={styles.rightHeading}>{current.heading}</h2>
           <p style={styles.rightSub}>{current.sub}</p>

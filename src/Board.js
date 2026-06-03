@@ -40,6 +40,14 @@ const PRIORITY_CONFIG = {
   critical: { label: "🔥",     color: "#7c3aed", bg: "#ede9fe", text: "#5b21b6" },
 };
 
+function getInitials(nameStr) {
+  if (!nameStr) return "??";
+  if (nameStr.includes("@")) return nameStr.charAt(0).toUpperCase();
+  const parts = nameStr.trim().split(/\s+/);
+  if (parts.length > 1) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return nameStr.substring(0, 2).toUpperCase();
+}
+
 function fixData(raw) {
   const fixed = { ...raw };
   if (fixed.columnOrder && !Array.isArray(fixed.columnOrder))
@@ -128,8 +136,8 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
                 )}
                 {card.assignee && (
                   <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
-                    <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "white" }}>
-                      {card.assignee[0].toUpperCase()}
+                    <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white" }}>
+                      {getInitials(card.assignee)}
                     </span>
                     {card.assignee.split("@")[0]}
                   </span>
@@ -241,7 +249,7 @@ function ActivityFeed({ activities, onClose }) {
         <button onClick={onClose} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, width: 36, height: 36, cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-        {activities.length === 0 ? ( <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 15, paddingTop: 60 }}><div style={{ fontSize: 48, marginBottom: 12, opacity: 0.5 }}>📋</div>No activity yet</div> ) : ( activities.slice().reverse().map((a, i) => ( <div key={i} style={{ display: "flex", gap: 14, marginBottom: 20 }}><div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "white" }}>{(a.user || "?")[0].toUpperCase()}</div><div style={{ flex: 1, paddingTop: 4 }}><div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5 }}><span style={{ fontWeight: 600, color: "#0f172a" }}>{(a.user || "Someone").split("@")[0]}</span> {a.action}</div><div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>{timeAgo(a.timestamp)}</div></div></div> )) )}
+        {activities.length === 0 ? ( <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 15, paddingTop: 60 }}><div style={{ fontSize: 48, marginBottom: 12, opacity: 0.5 }}>📋</div>No activity yet</div> ) : ( activities.slice().reverse().map((a, i) => ( <div key={i} style={{ display: "flex", gap: 14, marginBottom: 20 }}><div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "white" }}>{getInitials(a.user)}</div><div style={{ flex: 1, paddingTop: 4 }}><div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5 }}><span style={{ fontWeight: 600, color: "#0f172a" }}>{(a.user || "Someone").split("@")[0]}</span> {a.action}</div><div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>{timeAgo(a.timestamp)}</div></div></div> )) )}
       </div>
     </div>
   );
@@ -289,6 +297,8 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [isOnline, setIsOnline]       = useState(navigator.onLine);
   const [mounted, setMounted]         = useState(false);
   
+  const [dbUser, setDbUser] = useState(null);
+
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false); 
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -296,7 +306,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [sendingDigest, setSendingDigest] = useState(false);
   const [activities, setActivities]   = useState([]);
   
-  // ALERTS STATE
   const [notifications, setNotifications] = useState([]);
   const [search, setSearch]           = useState("");
   const [filterLabel, setFilterLabel] = useState("");
@@ -328,7 +337,18 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
   useEffect(() => { const t = setTimeout(() => setMounted(true), 60); return () => clearTimeout(t); }, []);
 
-  // NEW FIREBASE NOTIFICATION LISTENER
+  // Fetch live user profile data from Database
+  useEffect(() => {
+    if (!user?.uid) return;
+    const userProfileRef = ref(db, `users/${user.uid}`);
+    const unsubscribe = onValue(userProfileRef, (snap) => {
+      if (snap.exists()) {
+        setDbUser(snap.val());
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   useEffect(() => {
     if (!user || !user.email) return;
     const userEmailKey = user.email.replace(/\./g, ",");
@@ -471,6 +491,13 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const allAssignees = data ? [...new Set(Object.values(data.cards || {}).map(c => c.assignee).filter(Boolean))] : [];
   const hasFilter = search || filterLabel || filterAssignee || filterPriority;
 
+  // Calculate the correct display name with strict capitalization
+  const rawName = dbUser?.name || user.displayName || user.email.split("@")[0];
+  const displayName = rawName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  
+  const displayPhoto = dbUser?.photoURL || user.photoURL;
+  const hasCustomPhoto = displayPhoto && !displayPhoto.includes("Profile_avatar_placeholder");
+
   if (!data || !data.columnOrder) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", background: "#f8fafc" }}>
       <div style={{ textAlign: "center" }}>
@@ -539,7 +566,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             
-            {/* TYPO FIXED: Cleaned up the 'Active' text wrapper */}
             <div style={{display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, whiteSpace: "nowrap"}}>
                <Presence user={user} boardId={boardId} />
             </div>
@@ -554,7 +580,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               </button>
             )}
 
-            {/* BUTTONS FIXED: Now sleek, icon-only squares with tooltips */}
             <button title="Analytics" onClick={() => setShowAnalytics(true)} style={{
               width: 38, height: 38, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
             }} onMouseEnter={e => e.currentTarget.style.background = "#334155"} onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}>
@@ -584,11 +609,16 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               + Invite
             </button>
 
+            {/* Profile Picture Update Here */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginLeft: 8, background: "#0ea5e9", borderRadius: 24, whiteSpace: "nowrap" }}>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0ea5e9" }}>
-                {user.email[0].toUpperCase()}
-              </div>
-              <span style={{ fontSize: 14, color: "white", fontWeight: 600 }}>{user.email.split("@")[0]}</span>
+              {hasCustomPhoto ? (
+                <img src={displayPhoto} alt="Profile" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0ea5e9" }}>
+                  {getInitials(displayName)}
+                </div>
+              )}
+              <span style={{ fontSize: 14, color: "white", fontWeight: 600 }}>{displayName}</span>
             </div>
 
             <button onClick={onLogout} style={{
