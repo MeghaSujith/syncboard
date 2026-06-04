@@ -63,6 +63,8 @@ function Auth() {
     setError("");
     setGoogleLoading(true);
     try {
+      // Force account chooser every time
+      googleProvider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(auth, googleProvider);
       const userDocRef = dbRef(db, `users/${cred.user.uid}`);
       const snapshot = await get(userDocRef);
@@ -71,7 +73,7 @@ function Auth() {
           email: cred.user.email,
           name: cred.user.displayName || "Google User",
           role: "member",
-          photoURL: cred.user.photoURL || "",
+          photoURL: cred.user.photoURL || null,
         });
       }
     } catch (err) {
@@ -98,11 +100,8 @@ function Auth() {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        // Step 1: Create user in Firebase Auth
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        console.log("✅ Auth created, UID:", cred.user.uid);
 
-        // Step 2: Handle profile photo
         let finalPhotoUrl = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
         if (file) {
@@ -117,30 +116,24 @@ function Auth() {
               reader.onerror = reject;
               reader.readAsDataURL(file);
             });
-            console.log("✅ Photo converted to base64");
           } catch (err) {
-            console.error("❌ Photo read failed:", err);
+            console.error("Photo read failed:", err);
           }
         }
 
-        // Step 3: Update Firebase Auth profile
+        // Don't set photoURL in updateProfile — base64 is too long for Firebase Auth
         await updateProfile(cred.user, {
-  displayName: name.trim(),
-  // don't set photoURL here — base64 is too long for Firebase Auth
-});
-        console.log("✅ Auth profile updated, displayName:", name.trim());
+          displayName: name.trim(),
+        });
 
-        // Step 4: Save to Realtime Database
         await set(dbRef(db, `users/${cred.user.uid}`), {
           email: email.trim(),
           name: name.trim(),
           role: role,
           photoURL: finalPhotoUrl,
         });
-        console.log("✅ DB write done, name saved:", name.trim());
       }
     } catch (err) {
-      console.error("❌ Registration error:", err);
       const msgs = {
         "auth/user-not-found": "No account found with this email",
         "auth/wrong-password": "Incorrect password. Please try again",
@@ -180,9 +173,9 @@ function Auth() {
     toggleSpan: { color: ACCENT, cursor: "pointer", fontWeight: "700" },
     features: { display: "flex", justifyContent: "center", gap: "24px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid rgba(226, 232, 240, 0.8)" },
     featureItem: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#64748b", fontWeight: "600" },
-    right: { width: "50%", position: "relative", overflow: "hidden" },
+    // Right panel — clean hard boundary, no fading
+    right: { width: "50%", position: "relative", overflow: "hidden", borderLeft: "1px solid #e2e8f0" },
     imgEl: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "opacity 0.6s ease", opacity: fading ? 0 : 1 },
-    mergeMask: { position: "absolute", left: 0, top: 0, bottom: 0, width: "30%", background: "linear-gradient(to right, #f8fafc 0%, transparent 100%)", zIndex: 1 },
     rightContentContainer: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "48px", color: "white", zIndex: 2 },
     rightHeading: { fontSize: "32px", fontWeight: "800", margin: "0 0 12px", lineHeight: 1.2, letterSpacing: "-0.5px" },
     rightSub: { fontSize: "16px", lineHeight: 1.6, color: "rgba(255,255,255,0.85)", margin: "0 0 28px", fontWeight: "400", textShadow: "0 2px 4px rgba(0,0,0,0.5)" },
@@ -212,10 +205,20 @@ function Auth() {
             <button style={styles.tab(!isLogin)} onClick={() => { setIsLogin(false); setError(""); setFile(null); }}>Register</button>
           </div>
 
+          {/* Google Sign In — normal weight, account chooser forced */}
           <button
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
-            style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #e2e8f0", background: "white", fontSize: "14px", fontWeight: "700", cursor: googleLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "20px", color: "#334155", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", fontFamily: "inherit" }}
+            style={{
+              width: "100%", padding: "12px", borderRadius: "10px",
+              border: "2px solid #e2e8f0", background: "white",
+              fontSize: "14px", fontWeight: "400",
+              cursor: googleLoading ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              gap: "10px", marginBottom: "20px", color: "#334155",
+              transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              fontFamily: "inherit"
+            }}
             onMouseEnter={e => { if (!googleLoading) { e.currentTarget.style.borderColor = "#4285f4"; e.currentTarget.style.background = "#f8fafc"; } }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "white"; }}
           >
@@ -342,9 +345,9 @@ function Auth() {
         </div>
       </div>
 
+      {/* Right panel — clean boundary, no fading mask */}
       <div style={styles.right}>
         <img src={current.url} alt="Team collaboration" style={styles.imgEl} key={slide} />
-        <div style={styles.mergeMask} />
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "40%", background: "linear-gradient(to top, rgba(2,15,25,0.75) 0%, transparent 100%)", zIndex: 1 }} />
         <div style={styles.rightContentContainer}>
           <h2 style={styles.rightHeading}>{current.heading}</h2>

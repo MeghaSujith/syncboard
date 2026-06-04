@@ -268,7 +268,9 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
 
   const displayName = dbUser?.name || user.displayName || user.email.split("@")[0];
   const displayPhoto = dbUser?.photoURL || user.photoURL;
-  const hasCustomPhoto = displayPhoto && !displayPhoto.includes("Profile_avatar_placeholder");
+  const hasCustomPhoto = displayPhoto &&
+    displayPhoto.trim() !== "" &&
+    !displayPhoto.includes("Profile_avatar_placeholder");
 
   const styles = `
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -316,15 +318,14 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     }
     .profile-trigger:hover { background: #f1f5f9; }
 
-    .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0d9488, #0ea5e9); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; box-shadow: 0 2px 8px rgba(13,148,136,0.3); overflow: hidden; flex-shrink: 0; }
-    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0d9488, #0ea5e9); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; box-shadow: 0 2px 8px rgba(13,148,136,0.3); flex-shrink: 0; }
     .user-name { font-size: 13px; color: #475569; font-weight: 600; }
 
     .profile-card {
       position: absolute; top: calc(100% + 12px); right: 0;
       background: white; border: 1px solid #e2e8f0; border-radius: 16px;
       box-shadow: 0 20px 40px -8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.02);
-      padding: 20px; width: 240; z-index: 999;
+      padding: 20px; width: 240px; z-index: 999;
       animation: popoverIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .profile-card-arrow {
@@ -338,10 +339,9 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
       background: linear-gradient(135deg, #0d9488, #0ea5e9);
       display: flex; align-items: center; justify-content: center;
       font-size: 22px; font-weight: 700; color: white;
-      overflow: hidden; margin-bottom: 10px;
+      margin-bottom: 10px;
       box-shadow: 0 4px 12px rgba(13,148,136,0.25);
     }
-    .profile-card-photo img { width: 100%; height: 100%; object-fit: cover; }
 
     .btn-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; }
     .btn-danger:hover { background: #fee2e2; }
@@ -445,15 +445,23 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
               </div>
             )}
 
-            {/* Profile trigger with hover card */}
             <div
               className="profile-trigger"
               onMouseEnter={handleProfileMouseEnter}
               onMouseLeave={handleProfileMouseLeave}
             >
-              <div className="avatar">
-                {hasCustomPhoto ? <img src={displayPhoto} alt="Profile" /> : getInitials(displayName)}
-              </div>
+              {/* Avatar — img directly if photo, initials div if not */}
+              {hasCustomPhoto ? (
+                <img
+                  src={displayPhoto}
+                  alt="Profile"
+                  referrerPolicy="no-referrer"
+                  style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover", display: "block", flexShrink: 0, boxShadow: "0 2px 8px rgba(13,148,136,0.3)" }}
+                />
+              ) : (
+                <div className="avatar">{getInitials(displayName)}</div>
+              )}
+
               <span className="user-name">{displayName}</span>
 
               {showProfileCard && (
@@ -464,24 +472,26 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
                 >
                   <div className="profile-card-arrow" />
 
-                  {/* Photo + name + role */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 }}>
-                    <div className="profile-card-photo">
-                      {hasCustomPhoto
-                        ? <img src={displayPhoto} alt="Profile" />
-                        : getInitials(displayName)
-                      }
-                    </div>
+                    {/* Profile card photo */}
+                    {hasCustomPhoto ? (
+                      <img
+                        src={displayPhoto}
+                        alt="Profile"
+                        referrerPolicy="no-referrer"
+                        style={{ width: "64px", height: "64px", borderRadius: "50%", objectFit: "cover", display: "block", marginBottom: 10, boxShadow: "0 4px 12px rgba(13,148,136,0.25)" }}
+                      />
+                    ) : (
+                      <div className="profile-card-photo">{getInitials(displayName)}</div>
+                    )}
                     <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", textAlign: "center" }}>{displayName}</div>
                     <div style={{ marginTop: 6, padding: "3px 12px", background: isTeamLead ? "#fef08a" : "#f0fdfa", color: isTeamLead ? "#854d0e" : "#0d9488", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
                       {isTeamLead ? "⭐ Team Lead" : "👤 Team Member"}
                     </div>
                   </div>
 
-                  {/* Divider */}
                   <div style={{ height: 1, background: "#f1f5f9", marginBottom: 14 }} />
 
-                  {/* Email row */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
