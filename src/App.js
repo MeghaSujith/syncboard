@@ -70,7 +70,6 @@ function App() {
         const userRef = ref(db, `users/${firebaseUser.uid}`);
         roleUnsubscribe = onValue(userRef, (snapshot) => {
           if (snapshot.exists() && snapshot.val().role) {
-            console.log("Role from DB:", snapshot.val().role);
             setUserRole(snapshot.val().role);
           } else {
             setUserRole("member");

@@ -329,7 +329,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         alert(`❌ Error: ${responseData.error}`);
       }
     } catch (e) {
-      console.error(e);
       alert("❌ Failed to send digest. Ensure backend is running on port 5000.");
     } finally {
       setSendingDigest(false);
@@ -338,7 +337,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
   useEffect(() => { const t = setTimeout(() => setMounted(true), 60); return () => clearTimeout(t); }, []);
 
-  // Fetch live user profile data from Database
   useEffect(() => {
     if (!user?.uid) return;
     const userProfileRef = ref(db, `users/${user.uid}`);
@@ -394,6 +392,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
   useEffect(() => {
   if (!boardInfo?.members) return;
+  
   const usersRef = ref(db, "users");
   onValue(usersRef, (snap) => {
     if (!snap.exists()) return;
@@ -410,8 +409,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   function logActivity(action) {
     push(ref(db, `boards/${boardId}/activity`), { user: user.email, action, timestamp: Date.now() });
   }
-
-
 
   function addNotification(message) {
     if (!user || !user.email) return;
@@ -509,7 +506,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const allAssignees = data ? [...new Set(Object.values(data.cards || {}).map(c => c.assignee).filter(Boolean))] : [];
   const hasFilter = search || filterLabel || filterAssignee || filterPriority;
 
-  // Calculate the correct display name with strict capitalization
   const rawName = dbUser?.name || user.displayName || user.email.split("@")[0];
   const displayName = rawName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
   
@@ -627,7 +623,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               + Invite
             </button>
 
-            {/* Profile Picture Update Here */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginLeft: 8, background: "#0ea5e9", borderRadius: 24, whiteSpace: "nowrap" }}>
               {hasCustomPhoto ? (
                 <img src={displayPhoto} alt="Profile" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
@@ -719,18 +714,18 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         </div>
 
         {selectedCard && (
-  <CardDetailModal
-    card={selectedCard}
-    onClose={() => setSelectedCard(null)}
-    onUpdate={handleUpdateAndSync}
-    onDelete={handleDeleteCard}
-    user={user}
-    logActivity={logActivity}
-    boardName={boardInfo?.name}
-    boardId={boardId}
-    userRole={userRole}
-  />
-)}
+          <CardDetailModal
+            card={selectedCard}
+            onClose={() => setSelectedCard(null)}
+            onUpdate={handleUpdateAndSync}
+            onDelete={handleDeleteCard}
+            user={user}
+            logActivity={logActivity}
+            boardName={boardInfo?.name}
+            boardId={boardId}
+            userRole={userRole}
+          />
+        )}
       </div>
 
       {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}

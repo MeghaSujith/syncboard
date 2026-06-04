@@ -29,10 +29,8 @@ function timeAgo(ts) {
   return `${Math.floor(diff / 86400000)}d ago`;
 }
 
-export default function CardDetailModal({ card, onClose, onUpdate, onDelete, user, logActivity, boardName, boardId, userRole
-}) {
+export default function CardDetailModal({ card, onClose, onUpdate, onDelete, user, logActivity, boardName, boardId, userRole }) {
   const isTeamLead = userRole === "team_lead";
-  console.log("userRole received:", userRole, "isTeamLead:", isTeamLead);
   const [title, setTitle]       = useState(card.text);
   const [desc, setDesc]         = useState(card.description || "");
   const [dueDate, setDueDate]   = useState(card.dueDate || "");
@@ -42,20 +40,18 @@ export default function CardDetailModal({ card, onClose, onUpdate, onDelete, use
   const [comment, setComment]   = useState("");
   const [comments, setComments] = useState(card.comments || []);
   const [tab, setTab]           = useState("details");
-  const [members, setMembers]   = useState([]); // [{email, name}]
+  const [members, setMembers]   = useState([]); 
   const [assignEmailStatus, setAssignEmailStatus] = useState("");
 
-  // Load all board members' profiles from DB
   useEffect(() => {
     if (!boardId) return;
     const boardInfoRef = ref(db, `boards/${boardId}/info/members`);
     onValue(boardInfoRef, (snap) => {
       if (!snap.exists()) return;
-      const emails = snap.val(); // array of emails
+      const emails = snap.val(); 
       const memberProfiles = [];
       let loaded = 0;
       emails.forEach(email => {
-        // look up each member's profile by email
         const usersRef = ref(db, "users");
         onValue(usersRef, (usersSnap) => {
           if (usersSnap.exists()) {
@@ -81,7 +77,6 @@ export default function CardDetailModal({ card, onClose, onUpdate, onDelete, use
     const prevAssignee = card.assignee || "";
     onUpdate(card.id, { text: title, description: desc, dueDate, assignee, priority, labels, comments });
 
-    // Send assignment email only if assignee changed
     if (assignee && assignee !== prevAssignee && assignee.includes("@")) {
       setAssignEmailStatus("sending");
       try {
@@ -105,7 +100,6 @@ export default function CardDetailModal({ card, onClose, onUpdate, onDelete, use
           setAssignEmailStatus("failed");
         }
       } catch (e) {
-        console.error("Assignment email failed:", e);
         setAssignEmailStatus("failed");
       }
     }
@@ -209,7 +203,6 @@ export default function CardDetailModal({ card, onClose, onUpdate, onDelete, use
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", display: "block", marginBottom: 8 }}>Assignee</label>
-                {/* Dropdown showing member names instead of raw email input */}
                 <select
   value={assignee}
   onChange={e => isTeamLead && setAssignee(e.target.value)}

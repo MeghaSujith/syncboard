@@ -4,26 +4,10 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfi
 import { ref as dbRef, set, get } from "firebase/database";
 
 const CAROUSEL_IMAGES = [
-  {
-    url: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1200&h=1000&fit=crop",
-    heading: "Work together, seamlessly",
-    sub: "Real-time collaboration and instant sync for high-performing teams.",
-  },
-  {
-    url: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&h=1000&fit=crop",
-    heading: "Plan. Track. Deliver.",
-    sub: "Visualise your workflow and keep every task moving forward.",
-  },
-  {
-    url: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1200&h=1000&fit=crop",
-    heading: "Stay in sync, always",
-    sub: "Every update reflects instantly across your whole team.",
-  },
-  {
-    url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=1000&fit=crop",
-    heading: "Built for modern teams",
-    sub: "From startups to enterprises — SyncBoard scales with you.",
-  },
+  { url: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1200&h=1000&fit=crop", heading: "Work together, seamlessly", sub: "Real-time collaboration and instant sync for high-performing teams." },
+  { url: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&h=1000&fit=crop", heading: "Plan. Track. Deliver.", sub: "Visualise your workflow and keep every task moving forward." },
+  { url: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1200&h=1000&fit=crop", heading: "Stay in sync, always", sub: "Every update reflects instantly across your whole team." },
+  { url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=1000&fit=crop", heading: "Built for modern teams", sub: "From startups to enterprises — SyncBoard scales with you." },
 ];
 
 const ACCENT = "#0d9488";
@@ -63,7 +47,6 @@ function Auth() {
     setError("");
     setGoogleLoading(true);
     try {
-      // Force account chooser every time
       googleProvider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(auth, googleProvider);
       const userDocRef = dbRef(db, `users/${cred.user.uid}`);
@@ -117,11 +100,10 @@ function Auth() {
               reader.readAsDataURL(file);
             });
           } catch (err) {
-            console.error("Photo read failed:", err);
+            // Silently fail and use default placeholder if reading fails
           }
         }
 
-        // Don't set photoURL in updateProfile — base64 is too long for Firebase Auth
         await updateProfile(cred.user, {
           displayName: name.trim(),
         });
@@ -173,7 +155,6 @@ function Auth() {
     toggleSpan: { color: ACCENT, cursor: "pointer", fontWeight: "700" },
     features: { display: "flex", justifyContent: "center", gap: "24px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid rgba(226, 232, 240, 0.8)" },
     featureItem: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#64748b", fontWeight: "600" },
-    // Right panel — clean hard boundary, no fading
     right: { width: "50%", position: "relative", overflow: "hidden", borderLeft: "1px solid #e2e8f0" },
     imgEl: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "opacity 0.6s ease", opacity: fading ? 0 : 1 },
     rightContentContainer: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "48px", color: "white", zIndex: 2 },
@@ -205,7 +186,6 @@ function Auth() {
             <button style={styles.tab(!isLogin)} onClick={() => { setIsLogin(false); setError(""); setFile(null); }}>Register</button>
           </div>
 
-          {/* Google Sign In — normal weight, account chooser forced */}
           <button
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
@@ -345,7 +325,6 @@ function Auth() {
         </div>
       </div>
 
-      {/* Right panel — clean boundary, no fading mask */}
       <div style={styles.right}>
         <img src={current.url} alt="Team collaboration" style={styles.imgEl} key={slide} />
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "40%", background: "linear-gradient(to top, rgba(2,15,25,0.75) 0%, transparent 100%)", zIndex: 1 }} />
