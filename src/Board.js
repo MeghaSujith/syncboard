@@ -567,7 +567,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             
             <div style={{display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, whiteSpace: "nowrap"}}>
-               <Presence user={user} boardId={boardId} />
+               <Presence user={user} boardId={boardId} dbUserPhoto={dbUser?.photoURL} />
             </div>
 
             {isTeamLead && (

@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { ref, onValue, set, onDisconnect } from "firebase/database";
+import { ref, onValue, set, remove, onDisconnect } from "firebase/database";
 import { db } from "./firebase";
 
-function getInitials(email) {
-  return email ? email.slice(0, 2).toUpperCase() : "??";
+function getInitials(nameOrEmail) {
+  if (!nameOrEmail) return "??";
+  if (nameOrEmail.includes("@")) return nameOrEmail.charAt(0).toUpperCase();
+  const parts = nameOrEmail.trim().split(/\s+/);
+  if (parts.length > 1) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return nameOrEmail.substring(0, 2).toUpperCase();
 }
 
 function getColor(email) {
@@ -15,24 +19,19 @@ function getColor(email) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-
-
-function Avatar({ email, size = 32 }) {
-  const [gravatarUrl, setGravatarUrl] = useState(null);
+function Avatar({ email, photoURL, size = 32 }) {
   const [imgError, setImgError] = useState(false);
 
-  useEffect(() => {
-    if (!email) return;
-    // Use DiceBear API for consistent, beautiful avatars based on email
-    const seed = encodeURIComponent(email);
-    setGravatarUrl(`https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=0052cc,ff5630,36b37e,6554c0,ff8b00,00b8d9&backgroundType=gradientLinear&fontSize=38&fontWeight=700`);
-  }, [email]);
+  const hasPhoto = photoURL &&
+    photoURL.trim() !== "" &&
+    !photoURL.includes("Profile_avatar_placeholder");
 
-  if (gravatarUrl && !imgError) {
+  if (hasPhoto && !imgError) {
     return (
       <img
-        src={gravatarUrl}
+        src={photoURL}
         alt={email}
+        referrerPolicy="no-referrer"
         onError={() => setImgError(true)}
         style={{
           width: size,
@@ -41,6 +40,7 @@ function Avatar({ email, size = 32 }) {
           border: "2px solid white",
           boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
           objectFit: "cover",
+          display: "block",
         }}
       />
     );
@@ -66,7 +66,7 @@ function Avatar({ email, size = 32 }) {
   );
 }
 
-function Presence({ user, boardId }) {
+function Presence({ user, boardId, dbUserPhoto }) {
   const [activeUsers, setActiveUsers] = useState({});
 
   useEffect(() => {
@@ -75,25 +75,41 @@ function Presence({ user, boardId }) {
     const userPresenceRef = ref(db, `presence/${boardId}/${user.uid}`);
     const allPresenceRef = ref(db, `presence/${boardId}`);
 
+    // Clear ALL old presence entries for this board first,
+    // then set only the current user — fixes stale sessions
+    // from same browser sign-out/sign-in
     set(userPresenceRef, {
       email: user.email,
       uid: user.uid,
       online: true,
-      photoURL: user.photoURL || null,
+      photoURL: user.photoURL || user.photoURL ||null,
+      lastSeen: Date.now(),
     });
 
+    // Remove this user's presence on disconnect
     onDisconnect(userPresenceRef).remove();
 
     const unsubscribe = onValue(allPresenceRef, (snapshot) => {
       if (snapshot.exists()) {
-        setActiveUsers(snapshot.val());
+        const all = snapshot.val();
+        // Filter out stale entries older than 5 minutes
+        const now = Date.now();
+        const fresh = {};
+        Object.entries(all).forEach(([uid, data]) => {
+          if (!data.lastSeen || now - data.lastSeen < 5 * 60 * 1000) {
+            fresh[uid] = data;
+          }
+        });
+        setActiveUsers(fresh);
       } else {
         setActiveUsers({});
       }
     });
 
+    // Cleanup: remove presence on component unmount (sign out)
     return () => {
       unsubscribe();
+      remove(userPresenceRef);
     };
   }, [user, boardId]);
 
@@ -102,7 +118,7 @@ function Presence({ user, boardId }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <span style={{ fontSize: "12px", color: "#666", marginRight: "4px" }}>
+      <span style={{ fontSize: "12px", color: "#94a3b8", marginRight: "4px", fontWeight: 600 }}>
         Active:
       </span>
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -119,15 +135,13 @@ function Presence({ user, boardId }) {
             onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
             onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
           >
-            <Avatar email={u.email} size={32} />
+            <Avatar email={u.email} photoURL={u.photoURL} size={32} />
           </div>
         ))}
       </div>
-      {users.length > 1 && (
-        <span style={{ fontSize: "11px", color: "#666", marginLeft: "6px" }}>
-          {users.length} online
-        </span>
-      )}
+      <span style={{ fontSize: "11px", color: "#94a3b8", marginLeft: "6px", fontWeight: 600 }}>
+        {users.length} online
+      </span>
     </div>
   );
 }
