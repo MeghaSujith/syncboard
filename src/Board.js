@@ -75,7 +75,7 @@ function getPriority(card) {
   return card.priority || "medium";
 }
 
-function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
+function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId, memberProfiles = {} })  {
   const [hovered, setHovered] = useState(false);
   const priority = getPriority(card);
   const pc = PRIORITY_CONFIG[priority];
@@ -135,13 +135,13 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId }) {
                   </span>
                 )}
                 {card.assignee && (
-                  <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
-                    <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white" }}>
-                      {getInitials(card.assignee)}
-                    </span>
-                    {card.assignee.split("@")[0]}
-                  </span>
-                )}
+  <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
+    <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white" }}>
+      {getInitials(memberProfiles[card.assignee] || card.assignee)}
+    </span>
+    {memberProfiles[card.assignee] || card.assignee.split("@")[0]}
+  </span>
+)}
                 {(card.comments || []).length > 0 && (
                   <span style={{ fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 4, fontWeight: 500 }}>💬 {card.comments.length}</span>
                 )}
@@ -298,6 +298,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [mounted, setMounted]         = useState(false);
   
   const [dbUser, setDbUser] = useState(null);
+  const [memberProfiles, setMemberProfiles] = useState({});
 
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false); 
@@ -391,9 +392,26 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
+  useEffect(() => {
+  if (!boardInfo?.members) return;
+  const usersRef = ref(db, "users");
+  onValue(usersRef, (snap) => {
+    if (!snap.exists()) return;
+    const allUsers = Object.values(snap.val());
+    const profiles = {};
+    boardInfo.members.forEach(email => {
+      const found = allUsers.find(u => u.email === email);
+      profiles[email] = found?.name || email.split("@")[0];
+    });
+    setMemberProfiles(profiles);
+  }, { onlyOnce: true });
+}, [boardInfo?.members]);
+
   function logActivity(action) {
     push(ref(db, `boards/${boardId}/activity`), { user: user.email, action, timestamp: Date.now() });
   }
+
+
 
   function addNotification(message) {
     if (!user || !user.email) return;
@@ -685,7 +703,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
                           {cards.map((card, index) => (
                             <CardItem
                               key={card.id} card={card} index={index} colColor={cc} colId={colId}
-                              onDelete={handleDeleteCard} onEdit={handleEditCard} onOpen={setSelectedCard}
+                              onDelete={handleDeleteCard} onEdit={handleEditCard} onOpen={setSelectedCard} memberProfiles={memberProfiles}
                             />
                           ))}
                           {provided.placeholder}
@@ -701,11 +719,18 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         </div>
 
         {selectedCard && (
-          <CardDetailModal
-            card={selectedCard} onClose={() => setSelectedCard(null)} onUpdate={handleUpdateAndSync}
-            onDelete={handleDeleteCard} user={user} logActivity={logActivity}
-          />
-        )}
+  <CardDetailModal
+    card={selectedCard}
+    onClose={() => setSelectedCard(null)}
+    onUpdate={handleUpdateAndSync}
+    onDelete={handleDeleteCard}
+    user={user}
+    logActivity={logActivity}
+    boardName={boardInfo?.name}
+    boardId={boardId}
+    userRole={userRole}
+  />
+)}
       </div>
 
       {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}

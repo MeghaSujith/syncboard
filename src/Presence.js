@@ -79,12 +79,12 @@ function Presence({ user, boardId, dbUserPhoto }) {
     // then set only the current user — fixes stale sessions
     // from same browser sign-out/sign-in
     set(userPresenceRef, {
-      email: user.email,
-      uid: user.uid,
-      online: true,
-      photoURL: user.photoURL || user.photoURL ||null,
-      lastSeen: Date.now(),
-    });
+  email: user.email,
+  uid: user.uid,
+  online: true,
+  photoURL: dbUserPhoto || user.photoURL || null,
+  lastSeen: Date.now(),
+});
 
     // Remove this user's presence on disconnect
     onDisconnect(userPresenceRef).remove();
@@ -111,7 +111,7 @@ function Presence({ user, boardId, dbUserPhoto }) {
       unsubscribe();
       remove(userPresenceRef);
     };
-  }, [user, boardId]);
+  }, [user, boardId, dbUserPhoto]);
 
   const users = Object.values(activeUsers);
   if (users.length === 0) return null;
