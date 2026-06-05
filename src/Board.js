@@ -75,14 +75,21 @@ function getPriority(card) {
   return card.priority || "medium";
 }
 
-function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId, memberProfiles = {} })  {
+// ── CardItem ──────────────────────────────────────────────────────────────────
+function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId, memberProfiles = {} }) {
   const [hovered, setHovered] = useState(false);
   const priority = getPriority(card);
   const pc = PRIORITY_CONFIG[priority];
   const labels = card.labels || [];
-  
+
   const isDone = colId === "done";
   const isOverdue = !isDone && card.dueDate && new Date(card.dueDate) < new Date();
+
+  // Resolve assignee profile — memberProfiles now stores { name, photo } objects
+  const profile = memberProfiles[card.assignee];
+  const assigneeName = profile?.name || (card.assignee ? card.assignee.split("@")[0] : "");
+  const assigneePhoto = profile?.photo;
+  const hasAssigneePhoto = assigneePhoto && !assigneePhoto.includes("Profile_avatar_placeholder");
 
   return (
     <Draggable draggableId={card.id} index={index}>
@@ -125,23 +132,34 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId, memb
               <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.5, marginBottom: 14, paddingRight: 24 }}>{card.text}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 {card.dueDate && (
-                  <span style={{ 
-                    fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6, 
-                    background: isDone ? "#dcfce7" : isOverdue ? "#fee2e2" : "#f1f5f9", 
-                    color: isDone ? "#15803d" : isOverdue ? "#b91c1c" : "#64748b", 
-                    display: "flex", alignItems: "center", gap: 4 
+                  <span style={{
+                    fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6,
+                    background: isDone ? "#dcfce7" : isOverdue ? "#fee2e2" : "#f1f5f9",
+                    color: isDone ? "#15803d" : isOverdue ? "#b91c1c" : "#64748b",
+                    display: "flex", alignItems: "center", gap: 4
                   }}>
                     {isDone ? "✅" : isOverdue ? "⚠️" : "📅"} {card.dueDate}
                   </span>
                 )}
+
+                {/* ── Assignee avatar — shows profile photo if available ── */}
                 {card.assignee && (
-  <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
-    <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white" }}>
-      {getInitials(memberProfiles[card.assignee] || card.assignee)}
-    </span>
-    {memberProfiles[card.assignee] || card.assignee.split("@")[0]}
-  </span>
-)}
+                  <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
+                    {hasAssigneePhoto ? (
+                      <img
+                        src={assigneePhoto}
+                        alt={assigneeName}
+                        style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white", flexShrink: 0 }}>
+                        {getInitials(assigneeName)}
+                      </span>
+                    )}
+                    {assigneeName}
+                  </span>
+                )}
+
                 {(card.comments || []).length > 0 && (
                   <span style={{ fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 4, fontWeight: 500 }}>💬 {card.comments.length}</span>
                 )}
@@ -163,7 +181,7 @@ function AddCardForm({ columnId, onAdd, colTheme }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const inputRef = useRef(null);
-  
+
   useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
 
   function handleAdd() {
@@ -219,7 +237,7 @@ function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssig
 function NotificationBell({ notifications, onClear }) {
   const [open, setOpen] = useState(false);
   const unread = notifications.filter(n => !n.read).length;
-  
+
   return (
     <div style={{ position: "relative" }}>
       <button title="Notifications" onClick={() => setOpen(o => !o)} style={{ width: 40, height: 40, borderRadius: "8px", border: "1px solid #334155", background: open ? "#1e293b" : "transparent", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#1e293b"} onMouseLeave={e => e.currentTarget.style.background = open ? "#1e293b" : "transparent"}>
@@ -288,28 +306,29 @@ function InviteModal({ boardInfo, boardId, onClose }) {
 
 // ─── Main Board Component ─────────────────────────────────────────────────────
 function Board({ user, userRole, boardId, onLogout, onBack }) {
-  
+
   const isTeamLead = userRole === "team_lead";
 
-  const [data, setData]               = useState(null);
+  const [data, setData]                 = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [boardInfo, setBoardInfo]     = useState(null);
-  const [isOnline, setIsOnline]       = useState(navigator.onLine);
-  const [mounted, setMounted]         = useState(false);
-  
-  const [dbUser, setDbUser] = useState(null);
+  const [boardInfo, setBoardInfo]       = useState(null);
+  const [isOnline, setIsOnline]         = useState(navigator.onLine);
+  const [mounted, setMounted]           = useState(false);
+
+  const [dbUser, setDbUser]               = useState(null);
+  // memberProfiles now stores { name, photo } objects keyed by email
   const [memberProfiles, setMemberProfiles] = useState({});
 
   const [showActivity, setShowActivity] = useState(false);
-  const [showChat, setShowChat] = useState(false); 
+  const [showChat, setShowChat]         = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showInvite, setShowInvite]   = useState(false);
+  const [showInvite, setShowInvite]     = useState(false);
   const [sendingDigest, setSendingDigest] = useState(false);
-  const [activities, setActivities]   = useState([]);
-  
+  const [activities, setActivities]     = useState([]);
+
   const [notifications, setNotifications] = useState([]);
-  const [search, setSearch]           = useState("");
-  const [filterLabel, setFilterLabel] = useState("");
+  const [search, setSearch]             = useState("");
+  const [filterLabel, setFilterLabel]   = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
 
@@ -341,9 +360,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     if (!user?.uid) return;
     const userProfileRef = ref(db, `users/${user.uid}`);
     const unsubscribe = onValue(userProfileRef, (snap) => {
-      if (snap.exists()) {
-        setDbUser(snap.val());
-      }
+      if (snap.exists()) setDbUser(snap.val());
     });
     return () => unsubscribe();
   }, [user?.uid]);
@@ -352,10 +369,9 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     if (!user || !user.email) return;
     const userEmailKey = user.email.replace(/\./g, ",");
     const notifRef = ref(db, `userNotifications/${userEmailKey}`);
-    
     const unsubscribe = onValue(notifRef, snap => {
       if (snap.exists()) {
-        const notifs = Object.values(snap.val()).sort((a,b) => a.timestamp - b.timestamp);
+        const notifs = Object.values(snap.val()).sort((a, b) => a.timestamp - b.timestamp);
         setNotifications(notifs);
       } else {
         setNotifications([]);
@@ -390,21 +406,24 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
+  // ── Fetch member profiles — now stores { name, photo } ──────────────────────
   useEffect(() => {
-  if (!boardInfo?.members) return;
-  
-  const usersRef = ref(db, "users");
-  onValue(usersRef, (snap) => {
-    if (!snap.exists()) return;
-    const allUsers = Object.values(snap.val());
-    const profiles = {};
-    boardInfo.members.forEach(email => {
-      const found = allUsers.find(u => u.email === email);
-      profiles[email] = found?.name || email.split("@")[0];
-    });
-    setMemberProfiles(profiles);
-  }, { onlyOnce: true });
-}, [boardInfo?.members]);
+    if (!boardInfo?.members) return;
+    const usersRef = ref(db, "users");
+    onValue(usersRef, (snap) => {
+      if (!snap.exists()) return;
+      const allUsers = Object.values(snap.val());
+      const profiles = {};
+      boardInfo.members.forEach(email => {
+        const found = allUsers.find(u => u.email === email);
+        profiles[email] = {
+          name:  found?.name  || email.split("@")[0],
+          photo: found?.photoURL || null,
+        };
+      });
+      setMemberProfiles(profiles);
+    }, { onlyOnce: true });
+  }, [boardInfo?.members]);
 
   function logActivity(action) {
     push(ref(db, `boards/${boardId}/activity`), { user: user.email, action, timestamp: Date.now() });
@@ -413,10 +432,10 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   function addNotification(message) {
     if (!user || !user.email) return;
     const userEmailKey = user.email.replace(/\./g, ",");
-    push(ref(db, `userNotifications/${userEmailKey}`), { 
-      message, 
-      timestamp: Date.now(), 
-      read: false 
+    push(ref(db, `userNotifications/${userEmailKey}`), {
+      message,
+      timestamp: Date.now(),
+      read: false
     });
   }
 
@@ -508,7 +527,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
 
   const rawName = dbUser?.name || user.displayName || user.email.split("@")[0];
   const displayName = rawName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
-  
+
   const displayPhoto = dbUser?.photoURL || user.photoURL;
   const hasCustomPhoto = displayPhoto && !displayPhoto.includes("Profile_avatar_placeholder");
 
@@ -543,12 +562,12 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       `}</style>
 
-      <div 
-        className={`board-root${mounted ? " mounted" : ""}`} 
-        style={{ 
+      <div
+        className={`board-root${mounted ? " mounted" : ""}`}
+        style={{
           minHeight: "100vh", display: "flex", flexDirection: "column",
           transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-          marginRight: showChat ? 380 : showActivity ? 360 : 0 
+          marginRight: showChat ? 380 : showActivity ? 360 : 0
         }}
       >
         {!isOnline && (
@@ -579,9 +598,8 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            
             <div style={{display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, whiteSpace: "nowrap"}}>
-               <Presence user={user} boardId={boardId} dbUserPhoto={dbUser?.photoURL} />
+              <Presence user={user} boardId={boardId} dbUserPhoto={dbUser?.photoURL} />
             </div>
 
             {isTeamLead && (
@@ -613,8 +631,8 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
             </button>
 
             <NotificationBell notifications={notifications} onClear={() => {
-                const userEmailKey = user.email.replace(/\./g, ",");
-                set(ref(db, `userNotifications/${userEmailKey}`), null);
+              const userEmailKey = user.email.replace(/\./g, ",");
+              set(ref(db, `userNotifications/${userEmailKey}`), null);
             }} />
 
             <button onClick={() => setShowInvite(true)} style={{
@@ -656,7 +674,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
               </span> cards match
             </div>
           )}
-          
+
           <DragDropContext onDragEnd={onDragEnd}>
             <div style={{ display: "flex", gap: 24, alignItems: "flex-start", minWidth: "max-content" }}>
               {data.columnOrder.map((colId) => {
@@ -729,9 +747,7 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
       </div>
 
       {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}
-      
-      {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />} 
-      
+      {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />}
       {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
       {showInvite && <InviteModal boardInfo={boardInfo} boardId={boardId} onClose={() => setShowInvite(false)} />}
     </>
