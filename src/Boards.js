@@ -364,7 +364,7 @@ export default function Boards({ user, userRole, onSelectBoard, onLogout }) {
     .stat-value { font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
     .stat-hint { font-size: 12px; margin-top: 2px; font-weight: 500; }
 
-    @keyframes popoverIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes popoverIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes cardIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
