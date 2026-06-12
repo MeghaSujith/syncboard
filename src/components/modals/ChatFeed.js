@@ -12,12 +12,22 @@ function timeAgoShort(ts) {
 }
 
 function formatChatText(text, isMe) {
-  // Bright cyan for dark bubbles, standard blue for light bubbles
-  const mentionColor = isMe ? "#67e8f9" : "#0284c7"; 
+  // Soft indigo for your dark bubbles, bold indigo for light bubbles
+  const mentionColor = isMe ? "#a5b4fc" : "#4f46e5"; 
 
   return text.split(/(@[a-zA-Z0-9_.-]+)/).map((part, index) => {
     if (part.startsWith('@')) {
-      return <span key={index} style={{ color: mentionColor, fontWeight: 600, background: isMe ? "rgba(255,255,255,0.1)" : "rgba(2,132,199,0.08)", padding: "0 4px", borderRadius: 4 }}>{part}</span>;
+      return (
+        <span key={index} style={{ 
+          color: mentionColor, 
+          fontWeight: 600, 
+          background: isMe ? "rgba(255,255,255,0.15)" : "rgba(79, 70, 229, 0.08)", 
+          padding: "1px 5px", 
+          borderRadius: 4 
+        }}>
+          {part}
+        </span>
+      );
     }
     return part;
   });
@@ -27,8 +37,26 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const [profiles, setProfiles] = useState({});
   const messagesEndRef = useRef(null);
 
+  // Fetch all user profiles to get their profile pictures
+  useEffect(() => {
+    const usersRef = ref(db, "users");
+    const unsub = onValue(usersRef, (snap) => {
+      if (snap.exists()) {
+        const allUsers = Object.values(snap.val());
+        const profMap = {};
+        allUsers.forEach(u => {
+          profMap[u.email] = u;
+        });
+        setProfiles(profMap);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Fetch chat messages
   useEffect(() => {
     const chatRef = ref(db, `boards/${boardId}/chat`);
     const unsubscribe = onValue(chatRef, (snap) => {
@@ -76,77 +104,89 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
         }
       });
     }
-
     setText("");
   }
 
   return (
-    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 380, background: "#ffffff", borderLeft: "1px solid #e2e8f0", zIndex: 200, display: "flex", flexDirection: "column", boxShadow: "-4px 0 24px rgba(15, 23, 42, 0.04)", animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 380, background: "#f8fafc", borderLeft: "1px solid #e2e8f0", zIndex: 200, display: "flex", flexDirection: "column", boxShadow: "-4px 0 24px rgba(15, 23, 42, 0.06)", animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       
-      {/* Header - Clean & Minimal */}
-      <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ffffff" }}>
+      {/* Header */}
+      <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.02)", zIndex: 10 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
             Team Chat
           </div>
-          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, fontWeight: 500 }}>Project discussions</div>
+          <div style={{ fontSize: 13, color: "#64748b", marginTop: 2, fontWeight: 500 }}>Project discussions</div>
         </div>
-        <button onClick={onClose} style={{ background: "transparent", border: "1px solid transparent", borderRadius: 6, width: 28, height: 28, cursor: "pointer", fontSize: 16, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#0f172a"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}>✕</button>
+        <button onClick={onClose} style={{ background: "transparent", border: "1px solid transparent", borderRadius: 6, width: 30, height: 30, cursor: "pointer", fontSize: 16, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#0f172a"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}>✕</button>
       </div>
 
       {/* Message Feed */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px", display: "flex", flexDirection: "column", gap: 24, background: "#f8fafc" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 24 }}>
         {messages.length === 0 ? (
-          <div style={{ textAlign: "center", color: "#64748b", fontSize: 13, marginTop: 60 }}>
-            <div style={{ fontSize: 24, marginBottom: 12, opacity: 0.8 }}>💬</div>
-            <span style={{ fontWeight: 600, color: "#334155" }}>Start the conversation</span><br/>Messages sent here are visible to the team.
+          <div style={{ textAlign: "center", color: "#64748b", fontSize: 14, marginTop: 60 }}>
+            <div style={{ fontSize: 28, marginBottom: 12, opacity: 0.8 }}>💬</div>
+            <span style={{ fontWeight: 600, color: "#334155" }}>Start the conversation</span><br/><span style={{ fontSize: 13 }}>Messages sent here are visible to the team.</span>
           </div>
         ) : (
           messages.map((msg, i) => {
             const isMe = msg.senderEmail === user.email;
             const isLead = msg.role === "team_lead";
+            
+            const senderProfile = profiles[msg.senderEmail];
+            const hasPhoto = senderProfile?.photoURL && !senderProfile.photoURL.includes("Profile_avatar_placeholder");
             const initial = (msg.senderName || "?")[0].toUpperCase();
 
-            // Professional, flat color scheme
+            // Rich Indigo for you, Crisp White with drop shadow for others
             const bubbleTheme = isMe 
-              ? { background: "#0f172a", color: "#f8fafc", border: "1px solid #0f172a" } // Sleek dark slate for current user
-              : { background: "#ffffff", color: "#334155", border: "1px solid #e2e8f0", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }; // Crisp white for others
+              ? { background: "#4f46e5", color: "#ffffff", border: "none", boxShadow: "0 2px 6px rgba(79, 70, 229, 0.2)" } 
+              : { background: "#ffffff", color: "#334155", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)" };
 
             return (
-              <div key={i} style={{ display: "flex", gap: 12, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
+              <div key={i} style={{ display: "flex", gap: 12, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start" }}>
                 
-                {/* Avatar - Solid colors, smaller size */}
-                <div style={{ 
-                  width: 24, height: 24, borderRadius: "6px", flexShrink: 0,
-                  background: isMe ? "#0d9488" : "#cbd5e1", // Brand teal for you, neutral for others
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, fontWeight: 700, color: "white"
-                }}>
-                  {initial}
+                {/* Avatar Column with LEAD tag */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, marginTop: 2 }}>
+                  {isLead && (
+                    <span style={{ fontSize: 9, fontWeight: 800, background: "#e0e7ff", color: "#4f46e5", padding: "2px 5px", borderRadius: 4, letterSpacing: 0.5, border: "1px solid #c7d2fe" }}>
+                      LEAD
+                    </span>
+                  )}
+                  {hasPhoto ? (
+                    <img src={senderProfile.photoURL} alt={msg.senderName} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", border: "1px solid #e2e8f0" }} />
+                  ) : (
+                    <div style={{ 
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: isMe ? "linear-gradient(135deg, #4f46e5, #4338ca)" : "linear-gradient(135deg, #cbd5e1, #94a3b8)", 
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 700, color: "white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)", border: "1px solid rgba(0,0,0,0.05)"
+                    }}>
+                      {initial}
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "80%" }}>
+                {/* Message Content Column */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "75%" }}>
                   
-                  {/* Name & Timestamp */}
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, padding: "0 2px" }}>
-                    {!isMe && (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>
-                        {msg.senderName}
-                      </span>
-                    )}
-                    {isLead && !isMe && (
-                      <span style={{ fontSize: 9, fontWeight: 700, background: "#e0e7ff", color: "#4338ca", padding: "2px 6px", borderRadius: 4, letterSpacing: 0.5 }}>LEAD</span>
-                    )}
-                    <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>{timeAgoShort(msg.timestamp)}</span>
+                  {/* Name & Timestamp anchored to the bubble */}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, padding: "0 4px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#334155" }}>
+                      {isMe ? "You" : msg.senderName}
+                    </span>
+                    <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
+                      {timeAgoShort(msg.timestamp)}
+                    </span>
                   </div>
 
-                  {/* Message Bubble - Slack/Teams style border radius */}
+                  {/* Message Bubble */}
                   <div style={{
-                    padding: "10px 14px",
-                    borderRadius: 8,
-                    borderBottomRightRadius: isMe ? 2 : 8,
-                    borderBottomLeftRadius: isMe ? 8 : 2,
-                    fontSize: 13,
+                    padding: "12px 16px",
+                    borderRadius: 12,
+                    borderTopRightRadius: isMe ? 2 : 12,
+                    borderTopLeftRadius: isMe ? 12 : 2,
+                    fontSize: 14,
                     lineHeight: 1.5,
                     wordBreak: "break-word",
                     ...bubbleTheme
@@ -161,16 +201,16 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area - Crisp, Editor-like Text Box */}
-      <div style={{ padding: "20px 24px", background: "#ffffff", borderTop: "1px solid #e2e8f0" }}>
+      {/* Input Area */}
+      <div style={{ padding: "20px 24px", background: "#ffffff", borderTop: "1px solid #e2e8f0", zIndex: 10 }}>
         <div style={{ 
           display: "flex", 
           flexDirection: "column",
           background: "#ffffff", 
           borderRadius: 8, 
-          border: `1px solid ${isFocused ? "#0d9488" : "#cbd5e1"}`, 
-          boxShadow: isFocused ? "0 0 0 1px #0d9488" : "0 1px 2px rgba(0,0,0,0.02)",
-          transition: "all 0.15s ease",
+          border: `1px solid ${isFocused ? "#4f46e5" : "#cbd5e1"}`, 
+          boxShadow: isFocused ? "0 0 0 3px rgba(79, 70, 229, 0.15)" : "0 1px 2px rgba(0,0,0,0.02)",
+          transition: "all 0.2s ease",
           overflow: "hidden"
         }}>
           <textarea 
@@ -182,22 +222,23 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
             placeholder="Reply to thread..." 
             rows={1}
             style={{ 
-              width: "100%", padding: "12px 14px", border: "none", background: "transparent", 
-              fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", color: "#0f172a",
-              minHeight: "44px"
+              width: "100%", padding: "14px 16px", border: "none", background: "transparent", 
+              fontSize: 14, outline: "none", fontFamily: "inherit", resize: "none", color: "#0f172a",
+              minHeight: "48px"
             }}
           />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f8fafc", borderTop: "1px solid #f1f5f9" }}>
-            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>Use <strong style={{color: "#64748b"}}>@</strong> to mention</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8fafc", borderTop: "1px solid #f1f5f9" }}>
+            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>Use <strong style={{color: "#4f46e5"}}>@</strong> to mention</span>
             <button 
               onClick={handleSend}
               disabled={!text.trim()}
               style={{ 
-                background: text.trim() ? "#0f172a" : "#e2e8f0", 
+                background: text.trim() ? "#4f46e5" : "#e2e8f0", 
                 color: text.trim() ? "#ffffff" : "#94a3b8", 
-                border: "none", borderRadius: 6, padding: "6px 14px", 
+                border: "none", borderRadius: 6, padding: "8px 16px", 
                 cursor: text.trim() ? "pointer" : "not-allowed", 
-                fontSize: 12, fontWeight: 600, transition: "all 0.15s"
+                fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+                boxShadow: text.trim() ? "0 2px 4px rgba(79, 70, 229, 0.3)" : "none"
               }}
             >
               Send
