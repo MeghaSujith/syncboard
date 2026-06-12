@@ -10,11 +10,12 @@ import ChatFeed from "./components/modals/ChatFeed";
 
 const ACCENT = "#0d9488";
 
+// UPDATE 1: Darkened column backgrounds from #f1f5f9 to #e2e8f0 (Slate 200) for better contrast
 const COLUMN_COLORS = {
-  todo:       { theme: "#8b5cf6", bg: "#f1f5f9" },
-  inprogress: { theme: "#f59e0b", bg: "#f1f5f9" },
-  review:     { theme: "#0ea5e9", bg: "#f1f5f9" },
-  done:       { theme: "#10b981", bg: "#f1f5f9" },
+  todo:       { theme: "#8b5cf6", bg: "#e2e8f0" },
+  inprogress: { theme: "#f59e0b", bg: "#e2e8f0" },
+  review:     { theme: "#0ea5e9", bg: "#e2e8f0" },
+  done:       { theme: "#10b981", bg: "#e2e8f0" },
 };
 
 const defaultColumns = {
@@ -85,11 +86,19 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId, memb
   const isDone = colId === "done";
   const isOverdue = !isDone && card.dueDate && new Date(card.dueDate) < new Date();
 
-  // Resolve assignee profile — memberProfiles now stores { name, photo } objects
   const profile = memberProfiles[card.assignee];
   const assigneeName = profile?.name || (card.assignee ? card.assignee.split("@")[0] : "");
   const assigneePhoto = profile?.photo;
   const hasAssigneePhoto = assigneePhoto && !assigneePhoto.includes("Profile_avatar_placeholder");
+
+  const commentCount = (card.comments || []).length;
+
+  const formatDueDate = (d) => {
+    if (!d) return "";
+    try {
+      return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch { return d; }
+  };
 
   return (
     <Draggable draggableId={card.id} index={index}>
@@ -102,75 +111,165 @@ function CardItem({ card, onDelete, onEdit, onOpen, index, colColor, colId, memb
           onMouseLeave={() => setHovered(false)}
           onClick={() => onOpen(card)}
           style={{
-            userSelect: "none", borderRadius: 8, marginBottom: 14,
-            border: `1px solid ${snapshot.isDragging ? ACCENT : "rgba(15, 23, 42, 0.08)"}`,
+            userSelect: "none",
+            borderRadius: 10,
+            marginBottom: 12,
+            // UPDATE 2: Base border is now white so it stands out against the darker columns
+            border: `1px solid ${snapshot.isDragging ? ACCENT : hovered ? "#cbd5e1" : "#ffffff"}`,
+            // UPDATE 3: Crisper, deeper shadows to create separation from the background
             boxShadow: snapshot.isDragging
-              ? "0 20px 25px -5px rgba(0, 0, 0, 0.15)"
-              : hovered ? "0 10px 15px -3px rgba(0, 0, 0, 0.08)" : "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-            cursor: snapshot.isDragging ? "grabbing" : "grab",
+              ? "0 20px 40px -8px rgba(0,0,0,0.18), 0 0 0 1px rgba(13,148,136,0.3)"
+              : hovered
+                ? "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)"
+                : "0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)",
+            cursor: snapshot.isDragging ? "grabbing" : "pointer",
             background: "white",
-            transition: snapshot.isDragging ? "none" : "box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease",
-            transform: hovered && !snapshot.isDragging ? "translateY(-2px)" : "none",
-            ...(snapshot.isDragging ? { zIndex: 9999, position: 'relative' } : {}),
+            transition: snapshot.isDragging ? "none" : "box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease",
+            transform: hovered && !snapshot.isDragging ? "translateY(-1px)" : "none",
+            ...(snapshot.isDragging ? { zIndex: 9999, position: "relative" } : {}),
             ...provided.draggableProps.style,
+            overflow: "hidden",
           }}
         >
-          <div style={{ position: "relative", borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: pc.color }} />
-            <div style={{ padding: "16px 16px 16px 20px" }}>
-              {labels.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                  {labels.map(lid => {
-                    const lc = LABEL_COLORS.find(l => l.id === lid);
-                    if (!lc) return null;
-                    return (
-                      <span key={lid} style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: lc.bg, color: lc.text }}>{lc.name}</span>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.5, marginBottom: 14, paddingRight: 24 }}>{card.text}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                {card.dueDate && (
-                  <span style={{
-                    fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6,
-                    background: isDone ? "#dcfce7" : isOverdue ? "#fee2e2" : "#f1f5f9",
-                    color: isDone ? "#15803d" : isOverdue ? "#b91c1c" : "#64748b",
-                    display: "flex", alignItems: "center", gap: 4
-                  }}>
-                    {isDone ? "✅" : isOverdue ? "⚠️" : "📅"} {card.dueDate}
-                  </span>
-                )}
+          
+          <div style={{ padding: "14px 16px 0" }}>
+            {/* Top Info Row: Labels & Clean Priority Badge */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              
+              {/* Labels */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {labels.map(lid => {
+                  const lc = LABEL_COLORS.find(l => l.id === lid);
+                  if (!lc) return null;
+                  return (
+                    <span key={lid} style={{
+                      fontSize: 11, fontWeight: 700,
+                      padding: "2px 8px", borderRadius: 4,
+                      background: lc.bg, color: lc.text,
+                      letterSpacing: "0.3px",
+                    }}>
+                      {lc.name}
+                    </span>
+                  );
+                })}
+              </div>
 
-                {/* ── Assignee avatar — shows profile photo if available ── */}
-                {card.assignee && (
-                  <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
+              {/* Priority Badge replaces the clashing top border */}
+              <div title={`Priority: ${pc.label}`} style={{
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "2px 6px", borderRadius: 4,
+                background: pc.bg, color: pc.text,
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.3px",
+                marginLeft: 8, flexShrink: 0
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: pc.color }} />
+                {pc.label}
+              </div>
+
+            </div>
+
+            {/* Card title */}
+            <div style={{
+              fontSize: 14, fontWeight: 600, color: "#0f172a",
+              lineHeight: 1.55, marginBottom: 14,
+              paddingRight: hovered ? 28 : 0,
+              transition: "padding-right 0.15s",
+            }}>
+              {card.text}
+            </div>
+          </div>
+
+          {/* Footer — always visible, clean divider */}
+          {(card.assignee || card.dueDate || commentCount > 0) && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "9px 16px 12px",
+              borderTop: "1px solid #f1f5f9",
+              marginTop: 0,
+            }}>
+              {/* Left: assignee */}
+              <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                {card.assignee ? (
+                  <>
                     {hasAssigneePhoto ? (
                       <img
                         src={assigneePhoto}
                         alt={assigneeName}
-                        style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1.5px solid #e2e8f0" }}
                       />
                     ) : (
-                      <span style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#0d9488,#0ea5e9)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white", flexShrink: 0 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        background: "linear-gradient(135deg,#0d9488,#0ea5e9)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 800, color: "white", flexShrink: 0,
+                        border: "1.5px solid white",
+                        boxShadow: "0 0 0 1px #e2e8f0",
+                      }}>
                         {getInitials(assigneeName)}
-                      </span>
+                      </div>
                     )}
-                    {assigneeName}
+                    <span style={{ fontSize: 12, color: "#475569", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
+                      {assigneeName}
+                    </span>
+                  </>
+                ) : (
+                  <div /> /* empty left side keeps layout */
+                )}
+              </div>
+
+              {/* Right: date + comments */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                {card.dueDate && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700,
+                    padding: "3px 8px", borderRadius: 6,
+                    background: isDone ? "#dcfce7" : isOverdue ? "#fee2e2" : "#f1f5f9",
+                    color: isDone ? "#15803d" : isOverdue ? "#b91c1c" : "#64748b",
+                    display: "flex", alignItems: "center", gap: 4,
+                    border: `1px solid ${isDone ? "#a7f3d0" : isOverdue ? "#fca5a5" : "#e2e8f0"}`,
+                  }}>
+                    {isDone ? "✓" : isOverdue ? "!" : ""}
+                    {formatDueDate(card.dueDate)}
                   </span>
                 )}
-
-                {(card.comments || []).length > 0 && (
-                  <span style={{ fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 4, fontWeight: 500 }}>💬 {card.comments.length}</span>
+                {commentCount > 0 && (
+                  <span style={{
+                    fontSize: 11, color: "#94a3b8", fontWeight: 600,
+                    display: "flex", alignItems: "center", gap: 3,
+                    padding: "3px 7px", borderRadius: 6,
+                    background: "#f8fafc", border: "1px solid #e2e8f0",
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3l3 3 3-3h3a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                    </svg>
+                    {commentCount}
+                  </span>
                 )}
               </div>
             </div>
-            {hovered && (
-              <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
-                <button onClick={e => { e.stopPropagation(); if (window.confirm("Delete this card?")) onDelete(card.id); }} style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "#fef2f2", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", color: "#b91c1c", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#fca5a5"} onMouseLeave={e => e.currentTarget.style.background = "#fef2f2"} title="Delete">✕</button>
-              </div>
-            )}
-          </div>
+          )}
+
+          {/* Hover delete button */}
+          {hovered && (
+            <div
+              style={{ position: "absolute", top: 10, right: 10 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={e => { e.stopPropagation(); if (window.confirm("Delete this card?")) onDelete(card.id); }}
+                style={{
+                  width: 24, height: 24, borderRadius: 6, border: "none",
+                  background: "rgba(241,245,249,0.95)", cursor: "pointer",
+                  fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#94a3b8", transition: "0.15s", backdropFilter: "blur(4px)",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#fee2e2"; e.currentTarget.style.color = "#b91c1c"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(241,245,249,0.95)"; e.currentTarget.style.color = "#94a3b8"; }}
+                title="Delete"
+              >✕</button>
+            </div>
+          )}
         </div>
       )}
     </Draggable>
@@ -316,7 +415,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [mounted, setMounted]           = useState(false);
 
   const [dbUser, setDbUser]               = useState(null);
-  // memberProfiles now stores { name, photo } objects keyed by email
   const [memberProfiles, setMemberProfiles] = useState({});
 
   const [showActivity, setShowActivity] = useState(false);
@@ -406,7 +504,6 @@ function Board({ user, userRole, boardId, onLogout, onBack }) {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
-  // ── Fetch member profiles — now stores { name, photo } ──────────────────────
   useEffect(() => {
     if (!boardInfo?.members) return;
     const usersRef = ref(db, "users");

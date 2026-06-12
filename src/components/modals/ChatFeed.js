@@ -5,21 +5,19 @@ import { ref, onValue, push } from "firebase/database";
 function timeAgoShort(ts) {
   if (!ts) return "";
   const diff = Date.now() - ts;
-  if (diff < 60000) return "now";
+  if (diff < 60000) return "Just now";
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
   return `${Math.floor(diff / 86400000)}d`;
 }
 
-// Function to make @mentions blue and bold in the chat bubble
-// Function to make @mentions pop based on the bubble's background color
 function formatChatText(text, isMe) {
-  // Bright cyan for your dark teal bubbles, standard blue for white bubbles
-  const mentionColor = isMe ? "#67e8f9" : "#0ea5e9"; 
+  // Bright cyan for dark bubbles, standard blue for light bubbles
+  const mentionColor = isMe ? "#67e8f9" : "#0284c7"; 
 
   return text.split(/(@[a-zA-Z0-9_.-]+)/).map((part, index) => {
     if (part.startsWith('@')) {
-      return <span key={index} style={{ color: mentionColor, fontWeight: 800 }}>{part}</span>;
+      return <span key={index} style={{ color: mentionColor, fontWeight: 600, background: isMe ? "rgba(255,255,255,0.1)" : "rgba(2,132,199,0.08)", padding: "0 4px", borderRadius: 4 }}>{part}</span>;
     }
     return part;
   });
@@ -28,9 +26,9 @@ function formatChatText(text, isMe) {
 export default function ChatFeed({ boardId, user, userRole, members, onClose }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Real-time Firebase Listener for Chat
   useEffect(() => {
     const chatRef = ref(db, `boards/${boardId}/chat`);
     const unsubscribe = onValue(chatRef, (snap) => {
@@ -44,7 +42,6 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
     return () => unsubscribe();
   }, [boardId]);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -53,7 +50,6 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
     if (!text.trim()) return;
     const currentUsername = user.email.split("@")[0];
     
-    // 1. Send the actual chat message
     const chatRef = ref(db, `boards/${boardId}/chat`);
     push(chatRef, {
       text: text.trim(),
@@ -63,19 +59,14 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
       timestamp: Date.now()
     });
 
-    // 2. Scan for @mentions and notify the tagged user
     const mentions = text.match(/@([a-zA-Z0-9_.-]+)/g);
     if (mentions && members) {
       mentions.forEach(mention => {
-        const taggedName = mention.substring(1).toLowerCase(); // remove the '@'
-        
-        // Find if the tagged name matches any board member's email prefix
+        const taggedName = mention.substring(1).toLowerCase(); 
         const matchedMemberEmail = members.find(m => m.split("@")[0].toLowerCase() === taggedName);
         
         if (matchedMemberEmail) {
           const taggedEmailKey = matchedMemberEmail.replace(/\./g, ",");
-          
-          // Send notification directly to that user's Firebase node
           push(ref(db, `userNotifications/${taggedEmailKey}`), {
             message: `💬 ${currentUsername} mentioned you in chat: "${text.trim()}"`,
             boardId: boardId,
@@ -90,25 +81,25 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
   }
 
   return (
-    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 380, background: "white", borderLeft: "1px solid #e2e8f0", zIndex: 200, display: "flex", flexDirection: "column", boxShadow: "-10px 0 40px rgba(0,0,0,0.08)", animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 380, background: "#ffffff", borderLeft: "1px solid #e2e8f0", zIndex: 200, display: "flex", flexDirection: "column", boxShadow: "-4px 0 24px rgba(15, 23, 42, 0.04)", animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       
-      {/* Header */}
-      <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.9)", backdropFilter: "blur(8px)" }}>
+      {/* Header - Clean & Minimal */}
+      <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ffffff" }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
-            💬 Team Chat
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
+            Team Chat
           </div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 4, fontWeight: 500 }}>Private project discussion</div>
+          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, fontWeight: 500 }}>Project discussions</div>
         </div>
-        <button onClick={onClose} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 14, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}>✕</button>
+        <button onClick={onClose} style={{ background: "transparent", border: "1px solid transparent", borderRadius: 6, width: 28, height: 28, cursor: "pointer", fontSize: 16, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#0f172a"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}>✕</button>
       </div>
 
       {/* Message Feed */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, background: "#f8fafc" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px", display: "flex", flexDirection: "column", gap: 24, background: "#f8fafc" }}>
         {messages.length === 0 ? (
-          <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, marginTop: 40 }}>
-            <div style={{ fontSize: 36, marginBottom: 16, opacity: 0.5 }}>👋</div>
-            <span style={{ fontWeight: 600 }}>No messages yet.</span><br/>Say hello to the team!
+          <div style={{ textAlign: "center", color: "#64748b", fontSize: 13, marginTop: 60 }}>
+            <div style={{ fontSize: 24, marginBottom: 12, opacity: 0.8 }}>💬</div>
+            <span style={{ fontWeight: 600, color: "#334155" }}>Start the conversation</span><br/>Messages sent here are visible to the team.
           </div>
         ) : (
           messages.map((msg, i) => {
@@ -116,64 +107,50 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
             const isLead = msg.role === "team_lead";
             const initial = (msg.senderName || "?")[0].toUpperCase();
 
-            // Simplified styling logic: Teal for you, White for everyone else
-            const getBubbleTheme = () => {
-              if (isMe) {
-                return {
-                  background: "linear-gradient(135deg, #0d9488, #0f766e)",
-                  color: "white",
-                  border: "none"
-                };
-              }
-              return {
-                background: "white",
-                color: "#0f172a",
-                border: "1px solid #e2e8f0"
-              };
-            };
-
-            const bubbleTheme = getBubbleTheme();
+            // Professional, flat color scheme
+            const bubbleTheme = isMe 
+              ? { background: "#0f172a", color: "#f8fafc", border: "1px solid #0f172a" } // Sleek dark slate for current user
+              : { background: "#ffffff", color: "#334155", border: "1px solid #e2e8f0", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }; // Crisp white for others
 
             return (
-              <div key={i} style={{ display: "flex", gap: 10, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
+              <div key={i} style={{ display: "flex", gap: 12, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
                 
-                {/* User Avatar - Unified Teal/Blue Gradient for all users */}
+                {/* Avatar - Solid colors, smaller size */}
                 <div style={{ 
-                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                  background: "linear-gradient(135deg, #0d9488, #0ea5e9)",
+                  width: 24, height: 24, borderRadius: "6px", flexShrink: 0,
+                  background: isMe ? "#0d9488" : "#cbd5e1", // Brand teal for you, neutral for others
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 12, fontWeight: 700, color: "white",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                  fontSize: 11, fontWeight: 700, color: "white"
                 }}>
                   {initial}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "75%" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "80%" }}>
                   
-                  {/* Name & Badge Row */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "0 4px" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
-                      {isMe ? "You" : msg.senderName}
-                    </span>
-                    {isLead && (
-                      <span style={{ fontSize: 9, fontWeight: 800, background: "#e2e8f0", color: "#475569", padding: "2px 6px", borderRadius: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Lead</span>
+                  {/* Name & Timestamp */}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, padding: "0 2px" }}>
+                    {!isMe && (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>
+                        {msg.senderName}
+                      </span>
                     )}
-                    <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{timeAgoShort(msg.timestamp)}</span>
+                    {isLead && !isMe && (
+                      <span style={{ fontSize: 9, fontWeight: 700, background: "#e0e7ff", color: "#4338ca", padding: "2px 6px", borderRadius: 4, letterSpacing: 0.5 }}>LEAD</span>
+                    )}
+                    <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>{timeAgoShort(msg.timestamp)}</span>
                   </div>
 
-                  {/* Message Bubble */}
+                  {/* Message Bubble - Slack/Teams style border radius */}
                   <div style={{
-                    padding: "12px 16px",
-                    borderRadius: 16,
-                    borderBottomRightRadius: isMe ? 4 : 16,
-                    borderBottomLeftRadius: isMe ? 16 : 4,
-                    fontSize: 14,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    borderBottomRightRadius: isMe ? 2 : 8,
+                    borderBottomLeftRadius: isMe ? 8 : 2,
+                    fontSize: 13,
                     lineHeight: 1.5,
                     wordBreak: "break-word",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                     ...bubbleTheme
                   }}>
-                    {/* Render the formatted text here */}
                     {formatChatText(msg.text, isMe)}
                   </div>
                 </div>
@@ -184,29 +161,48 @@ export default function ChatFeed({ boardId, user, userRole, members, onClose }) 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div style={{ padding: "16px 20px", background: "white", borderTop: "1px solid #e2e8f0" }}>
-        <div style={{ display: "flex", gap: 10, background: "#f1f5f9", padding: 6, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-          <input 
+      {/* Input Area - Crisp, Editor-like Text Box */}
+      <div style={{ padding: "20px 24px", background: "#ffffff", borderTop: "1px solid #e2e8f0" }}>
+        <div style={{ 
+          display: "flex", 
+          flexDirection: "column",
+          background: "#ffffff", 
+          borderRadius: 8, 
+          border: `1px solid ${isFocused ? "#0d9488" : "#cbd5e1"}`, 
+          boxShadow: isFocused ? "0 0 0 1px #0d9488" : "0 1px 2px rgba(0,0,0,0.02)",
+          transition: "all 0.15s ease",
+          overflow: "hidden"
+        }}>
+          <textarea 
             value={text} 
             onChange={e => setText(e.target.value)} 
-            onKeyDown={e => { if(e.key === "Enter") handleSend(); }}
-            placeholder="Type @username to tag someone..." 
-            style={{ flex: 1, padding: "10px 14px", border: "none", background: "transparent", fontSize: 14, outline: "none", fontFamily: "inherit" }}
-          />
-          <button 
-            onClick={handleSend}
-            disabled={!text.trim()}
+            onKeyDown={e => { if(e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Reply to thread..." 
+            rows={1}
             style={{ 
-              background: text.trim() ? "#0d9488" : "#cbd5e1", 
-              color: "white", border: "none", borderRadius: 8, padding: "0 20px", 
-              cursor: text.trim() ? "pointer" : "not-allowed", 
-              fontWeight: 700, transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-              boxShadow: text.trim() ? "0 4px 10px rgba(13,148,136,0.3)" : "none"
+              width: "100%", padding: "12px 14px", border: "none", background: "transparent", 
+              fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", color: "#0f172a",
+              minHeight: "44px"
             }}
-          >
-            Send
-          </button>
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f8fafc", borderTop: "1px solid #f1f5f9" }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>Use <strong style={{color: "#64748b"}}>@</strong> to mention</span>
+            <button 
+              onClick={handleSend}
+              disabled={!text.trim()}
+              style={{ 
+                background: text.trim() ? "#0f172a" : "#e2e8f0", 
+                color: text.trim() ? "#ffffff" : "#94a3b8", 
+                border: "none", borderRadius: 6, padding: "6px 14px", 
+                cursor: text.trim() ? "pointer" : "not-allowed", 
+                fontSize: 12, fontWeight: 600, transition: "all 0.15s"
+              }}
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </div>
