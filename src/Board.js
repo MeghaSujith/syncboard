@@ -9,18 +9,19 @@ import CardDetailModal from "./components/modals/CardDetailModal";
 import ChatFeed from "./components/modals/ChatFeed";
 import ActivityFeed from "./components/modals/ActivityFeed";
 import InviteModal from "./components/modals/InviteModal";
+import BoardSettingsModal from "./components/modals/BoardSettingsModal";
 import CardItem from "./components/board/CardItem";
 import AddCardForm from "./components/board/AddCardForm";
 import FilterBar from "./components/board/FilterBar";
 import NotificationBell from "./components/board/NotificationBell";
-// FIXED: Changed from ./components/utils/boardHelpers to ./utils/boardHelpers
-import { ACCENT, COLUMN_COLORS, defaultColumns, getInitials, fixData } from "./utils/boardHelpers";
+import { ACCENT, COLUMN_COLORS, defaultColumns, getInitials, fixData, BOARD_BACKGROUNDS } from "./utils/boardHelpers";
 
 // ── Custom hooks for data subscriptions ────────────────────────────────────
 
 function useBoardData(boardId) {
   const [data, setData] = useState(null);
   useEffect(() => {
+    if (!boardId) return;
     const boardRef = ref(db, `boards/${boardId}/data`);
     return onValue(boardRef, snap => {
       if (snap.exists()) setData(fixData(snap.val()));
@@ -33,8 +34,10 @@ function useBoardData(boardId) {
 function useBoardInfo(boardId) {
   const [boardInfo, setBoardInfo] = useState(null);
   useEffect(() => {
+    if (!boardId) return;
     return onValue(ref(db, `boards/${boardId}/info`), snap => {
       if (snap.exists()) setBoardInfo(snap.val());
+      else setBoardInfo(null); // CRITICAL FIX: Clear state if empty
     });
   }, [boardId]);
   return boardInfo;
@@ -43,8 +46,10 @@ function useBoardInfo(boardId) {
 function useActivities(boardId) {
   const [activities, setActivities] = useState([]);
   useEffect(() => {
+    if (!boardId) return;
     return onValue(ref(db, `boards/${boardId}/activity`), snap => {
       if (snap.exists()) setActivities(Object.values(snap.val()));
+      else setActivities([]); // CRITICAL FIX: Clear state if empty
     });
   }, [boardId]);
   return activities;
@@ -64,10 +69,14 @@ function useOnlineStatus() {
 function useDbUser(uid) {
   const [dbUser, setDbUser] = useState(null);
   useEffect(() => {
-    if (!uid) return;
+    if (!uid) {
+      setDbUser(null);
+      return;
+    }
     const userProfileRef = ref(db, `users/${uid}`);
     return onValue(userProfileRef, (snap) => {
       if (snap.exists()) setDbUser(snap.val());
+      else setDbUser(null); // CRITICAL FIX: Clears previous user's data on logout
     });
   }, [uid]);
   return dbUser;
@@ -76,7 +85,10 @@ function useDbUser(uid) {
 function useNotifications(userEmail) {
   const [notifications, setNotifications] = useState([]);
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail) {
+      setNotifications([]);
+      return;
+    }
     const userEmailKey = userEmail.replace(/\./g, ",");
     const notifRef = ref(db, `userNotifications/${userEmailKey}`);
     return onValue(notifRef, snap => {
@@ -94,7 +106,10 @@ function useNotifications(userEmail) {
 function useMemberProfiles(members) {
   const [memberProfiles, setMemberProfiles] = useState({});
   useEffect(() => {
-    if (!members) return;
+    if (!members || members.length === 0) {
+      setMemberProfiles({});
+      return;
+    }
     const usersRef = ref(db, "users");
     onValue(usersRef, (snap) => {
       if (!snap.exists()) return;
@@ -212,7 +227,7 @@ function UserBadge({ hasCustomPhoto, displayPhoto, displayName }) {
 function BoardNav({
   boardInfo, data, user, dbUser, isTeamLead, sendingDigest, onSendDigest,
   showChat, setShowChat, setShowAnalytics, showActivity, setShowActivity,
-  notifications, onClearNotifications, onLogout, onBack, onInvite,
+  notifications, onClearNotifications, onLogout, onBack, onInvite, onSettings,
   displayName, displayPhoto, hasCustomPhoto, boardId
 }) {
   return (
@@ -263,6 +278,12 @@ function BoardNav({
         </button>
 
         <NotificationBell notifications={notifications} onClear={onClearNotifications} />
+
+        <button title="Board Settings" onClick={onSettings} style={{
+          width: 38, height: 38, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s", marginLeft: 8
+        }} onMouseEnter={e => e.currentTarget.style.background = "#334155"} onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}>
+          ⚙️
+        </button>
 
         <button onClick={onInvite} style={{
           padding: "8px 16px", background: ACCENT, color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, marginLeft: 8, boxShadow: "0 4px 6px rgba(13, 148, 136, 0.3)"
@@ -363,8 +384,6 @@ function GlobalStyles() {
       body { 
         font-family: 'Plus Jakarta Sans', sans-serif; 
         background-color: #f8fafc; 
-        background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-        background-size: 24px 24px;
       }
       @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -397,12 +416,15 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
   const [showChat, setShowChat] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [sendingDigest, setSendingDigest] = useState(false);
 
   const [search, setSearch] = useState("");
   const [filterLabel, setFilterLabel] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+
+  const currentBgId = dbUser?.boardBackgrounds?.[boardId] || "default";
 
   async function handleSendDigest() {
     if (!boardId) return;
@@ -516,8 +538,9 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
         className={`board-root${mounted ? " mounted" : ""}`}
         style={{
           minHeight: "100vh", display: "flex", flexDirection: "column",
-          transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-          marginRight: showChat ? 380 : showActivity ? 360 : 0
+          transition: "margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease",
+          marginRight: showChat ? 380 : showActivity ? 360 : 0,
+          background: BOARD_BACKGROUNDS.find(b => b.id === currentBgId)?.bg || "#f8fafc"
         }}
       >
         <OfflineBanner isOnline={isOnline} />
@@ -529,6 +552,7 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
           showActivity={showActivity} setShowActivity={setShowActivity}
           notifications={notifications} onClearNotifications={handleClearNotifications}
           onLogout={onLogout} onBack={onBack} onInvite={() => setShowInvite(true)}
+          onSettings={() => setShowSettings(true)}
           displayName={displayName} displayPhoto={displayPhoto} hasCustomPhoto={hasCustomPhoto}
           boardId={boardId}
         />
@@ -582,6 +606,7 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
       {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />}
       {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
       {showInvite && <InviteModal boardInfo={boardInfo} boardId={boardId} onClose={() => setShowInvite(false)} />}
+      {showSettings && <BoardSettingsModal boardInfo={boardInfo} boardId={boardId} currentUserEmail={user.email} currentUserUid={user.uid} currentBgId={currentBgId} isTeamLead={isTeamLead} memberProfiles={memberProfiles} onClose={() => setShowSettings(false)} />}
     </>
   );
 }

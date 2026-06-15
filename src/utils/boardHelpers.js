@@ -20,6 +20,13 @@ export const LABEL_COLORS = [
   { id: "purple", bg: "#ede9fe", text: "#5b21b6", dot: "#8b5cf6", name: "Design"   },
   { id: "pink",   bg: "#fce7f3", text: "#9d174d", dot: "#ec4899", name: "Research" },
 ];
+export const BOARD_BACKGROUNDS = [
+  { id: "default", bg: "#f8fafc", name: "Clean Slate" },
+  { id: "dark", bg: "#0f172a", name: "Midnight" },
+  { id: "blue", bg: "linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%)", name: "Ocean Breeze" },
+  { id: "purple", bg: "linear-gradient(135deg, #faf5ff 0%, #e9d5ff 100%)", name: "Amethyst" },
+  { id: "teal", bg: "linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)", name: "Minty Fresh" }
+];
 export const PRIORITY_CONFIG = {
   low:      { label: "Low",    color: "#22c55e", bg: "#dcfce7", text: "#166534" },
   medium:   { label: "Medium", color: "#f59e0b", bg: "#fef3c7", text: "#92400e" },
