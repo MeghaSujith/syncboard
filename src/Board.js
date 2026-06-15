@@ -578,7 +578,7 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
         )}
       </div>
 
-      {showActivity && <ActivityFeed activities={activities} onClose={() => setShowActivity(false)} />}
+      {showActivity && <ActivityFeed activities={activities} memberProfiles={memberProfiles} onClose={() => setShowActivity(false)} />}
       {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />}
       {showAnalytics && <AnalyticsModal data={data} onClose={() => setShowAnalytics(false)} />}
       {showInvite && <InviteModal boardInfo={boardInfo} boardId={boardId} onClose={() => setShowInvite(false)} />}
