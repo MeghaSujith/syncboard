@@ -18,8 +18,9 @@ const PRIORITY_CONFIG = {
   critical: { label: "🔥",     color: "#7c3aed", bg: "#ede9fe", text: "#5b21b6" },
 };
 
-function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssignee, setFilterAssignee, filterPriority, setFilterPriority, allAssignees, onClear }) {
+function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssignee, setFilterAssignee, filterPriority, setFilterPriority, allAssignees, memberProfiles, onClear }) {
   const hasFilter = search || filterLabel || filterAssignee || filterPriority;
+  
   return (
     <div style={{ 
       display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", 
@@ -45,18 +46,48 @@ function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssig
           <option value="">All Labels</option>
           {LABEL_COLORS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
+        
         <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}
           style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: "#f8fafc", color: filterPriority ? "#0f172a" : "#64748b", outline: "none", cursor: "pointer", transition: "0.2s" }}
           onFocus={e => e.target.style.borderColor = ACCENT} onBlur={e => e.target.style.borderColor = "#e2e8f0"}>
           <option value="">All Priorities</option>
           {Object.entries(PRIORITY_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label} {k}</option>)}
         </select>
+        
         {allAssignees.length > 0 && (
           <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}
             style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: "#f8fafc", color: filterAssignee ? "#0f172a" : "#64748b", outline: "none", cursor: "pointer", transition: "0.2s" }}
             onFocus={e => e.target.style.borderColor = ACCENT} onBlur={e => e.target.style.borderColor = "#e2e8f0"}>
             <option value="">All Assignees</option>
-            {allAssignees.map(a => <option key={a} value={a}>{a.split("@")[0]}</option>)}
+            {allAssignees.map(a => {
+              let displayName = a;
+
+              if (memberProfiles) {
+                // 1. Check for exact match
+                if (memberProfiles[a]?.name) {
+                  displayName = memberProfiles[a].name;
+                } else {
+                  // 2. Check for prefix match (e.g. girisankar472 matching girisankar472@gmail.com)
+                  const matchingEmail = Object.keys(memberProfiles).find(email => 
+                    email.startsWith(a) || email.split('@')[0] === a
+                  );
+                  
+                  if (matchingEmail && memberProfiles[matchingEmail]?.name) {
+                    displayName = memberProfiles[matchingEmail].name;
+                  } else {
+                    // 3. Fallback: strip numbers and capitalize first letter
+                    const cleanName = a.replace(/[0-9]/g, '');
+                    displayName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+                  }
+                }
+              } else {
+                 // Absolute fallback if memberProfiles isn't loaded
+                 const cleanName = a.replace(/[0-9]/g, '');
+                 displayName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+              }
+
+              return <option key={a} value={a}>{displayName}</option>;
+            })}
           </select>
         )}
       </div>

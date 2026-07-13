@@ -560,7 +560,7 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
         <FilterBar
           search={search} setSearch={setSearch} filterLabel={filterLabel} setFilterLabel={setFilterLabel}
           filterAssignee={filterAssignee} setFilterAssignee={setFilterAssignee} filterPriority={filterPriority} setFilterPriority={setFilterPriority}
-          allAssignees={allAssignees} onClear={handleClearFilters}
+          allAssignees={allAssignees} memberProfiles={memberProfiles} onClear={handleClearFilters}
         />
 
         <div style={{ flex: 1, overflowX: "auto", padding: "40px 32px" }}>
