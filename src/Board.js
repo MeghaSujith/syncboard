@@ -198,29 +198,81 @@ function DigestButton({ isTeamLead, sendingDigest, onClick }) {
       onClick={onClick}
       disabled={sendingDigest}
       style={{
-        padding: "8px 16px", background: sendingDigest ? "#6366f1" : "#4f46e5", color: "white", border: "none",
-        borderRadius: 8, cursor: sendingDigest ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
-        display: "flex", alignItems: "center", gap: 6, transition: "0.2s", boxShadow: "0 4px 6px rgba(79, 70, 229, 0.3)"
+        padding: "8px 14px", 
+        background: sendingDigest ? "#334155" : "#1e293b", 
+        color: "#f8fafc", 
+        border: "1px solid #334155",
+        borderRadius: 8, 
+        cursor: sendingDigest ? "not-allowed" : "pointer", 
+        fontSize: 13, 
+        fontWeight: 600, 
+        fontFamily: "inherit",
+        display: "flex", 
+        alignItems: "center", 
+        gap: 8, 
+        transition: "all 0.2s ease",
+        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)"
       }}
-      onMouseEnter={e => { if (!sendingDigest) e.currentTarget.style.background = "#4338ca"; }}
-      onMouseLeave={e => { if (!sendingDigest) e.currentTarget.style.background = "#4f46e5"; }}
+      onMouseEnter={e => { 
+        if (!sendingDigest) { 
+          e.currentTarget.style.background = "#334155"; 
+          e.currentTarget.style.borderColor = "#475569"; 
+        } 
+      }}
+      onMouseLeave={e => { 
+        if (!sendingDigest) { 
+          e.currentTarget.style.background = "#1e293b"; 
+          e.currentTarget.style.borderColor = "#334155"; 
+        } 
+      }}
     >
-      {sendingDigest ? "⏳ Sending..." : "📧 Team Lead Digest"}
+      {sendingDigest ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+          <polyline points="22,6 12,13 2,6"></polyline>
+        </svg>
+      )}
+      {sendingDigest ? "Sending..." : "Team Lead Digest"}
     </button>
   );
 }
-
 function UserBadge({ hasCustomPhoto, displayPhoto, displayName }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginLeft: 8, background: "#0ea5e9", borderRadius: 24, whiteSpace: "nowrap" }}>
+    <div 
+      style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        gap: 8, 
+        padding: "4px 12px 4px 4px", 
+        marginLeft: 8, 
+        background: "#1e293b", 
+        border: "1px solid #334155", 
+        borderRadius: 24, 
+        whiteSpace: "nowrap",
+        cursor: "pointer",
+        transition: "all 0.2s ease"
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "#334155"}
+      onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}
+    >
       {hasCustomPhoto ? (
-        <img src={displayPhoto} alt="Profile" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+        <img 
+          src={displayPhoto} 
+          alt="Profile" 
+          style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "1px solid #475569" }} 
+        />
       ) : (
-        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0ea5e9" }}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#f8fafc", border: "1px solid #475569" }}>
           {getInitials(displayName)}
         </div>
       )}
-      <span style={{ fontSize: 14, color: "white", fontWeight: 600 }}>{displayName}</span>
+      <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>
+        {displayName}
+      </span>
     </div>
   );
 }
