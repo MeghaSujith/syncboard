@@ -5,7 +5,8 @@ function PopoverContainer({ children }) {
     <div style={{
       position: "absolute", top: "calc(100% + 14px)", left: "50%", transform: "translateX(-50%)",
       background: "white", borderRadius: 12, boxShadow: "0 12px 32px -4px rgba(15,23,42,0.15)",
-      minWidth: 260, zIndex: 100, border: "1px solid #e2e8f0", overflow: "visible"
+      minWidth: 280, zIndex: 100, border: "1px solid #e2e8f0", overflow: "visible",
+      fontFamily: "'Inter', sans-serif"
     }}>
       <div style={{
         position: "absolute", top: -6, left: "50%", marginLeft: -6, width: 12, height: 12,
@@ -22,17 +23,17 @@ function PopoverContainer({ children }) {
 function BoardsContent({ boards }) {
   return (
     <>
-      <div style={{ background: "#f8fafc", padding: "12px 16px", borderBottom: "1px solid #e2e8f0" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Active Workspaces</div>
+      <div style={{ background: "#f8fafc", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" }}>
+        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Active Workspaces</div>
       </div>
-      <div style={{ padding: "8px" }}>
-        {boards.slice(0, 5).map(b => (
-          <div key={b.id} style={{ padding: "8px 12px", fontSize: 13, color: "#0f172a", display: "flex", alignItems: "center", gap: 10, borderRadius: 6, transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#0ea5e9" }} />
-            <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
+      <div style={{ padding: "10px", maxHeight: 240, overflowY: "auto", fontFamily: "'Inter', sans-serif" }}>
+        {boards.map(b => (
+          <div key={b.id} style={{ padding: "10px 14px", fontSize: 13, color: "#334155", display: "flex", alignItems: "center", gap: 12, borderRadius: 8, marginBottom: 4, transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#0ea5e9", flexShrink: 0 }} />
+            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
           </div>
         ))}
-        {boards.length > 5 && <div style={{ padding: "8px 12px", fontSize: 12, color: "#64748b", fontWeight: 500 }}>+ {boards.length - 5} more boards</div>}
+        {boards.length === 0 && <div style={{ padding: "16px", fontSize: 13, color: "#64748b", textAlign: "center", fontFamily: "'Inter', sans-serif" }}>No active boards</div>}
       </div>
     </>
   );
@@ -45,17 +46,17 @@ function PendingContent({ boards, userEmail }) {
   }));
   return (
     <>
-      <div style={{ background: "#f8fafc", padding: "12px 16px", borderBottom: "1px solid #e2e8f0" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Assigned to You</div>
+      <div style={{ background: "#f8fafc", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" }}>
+        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Assigned to You</div>
       </div>
-      <div style={{ padding: "8px" }}>
-        {tasks.slice(0, 5).map((t, i) => (
-          <div key={i} style={{ padding: "8px 12px", borderRadius: 6, transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
-            <div style={{ fontSize: 11, color: "#0ea5e9", fontWeight: 700, marginTop: 4 }}>{t.boardName}</div>
+      <div style={{ padding: "10px", maxHeight: 240, overflowY: "auto", fontFamily: "'Inter', sans-serif" }}>
+        {tasks.map((t, i) => (
+          <div key={i} style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 6, transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: "1.4" }}>{t.text}</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#0ea5e9", fontWeight: 600, marginTop: 4 }}>{t.boardName}</div>
           </div>
         ))}
-        {tasks.length === 0 && <div style={{ padding: "12px", fontSize: 13, color: "#64748b", textAlign: "center" }}>You're all caught up!</div>}
+        {tasks.length === 0 && <div style={{ padding: "16px", fontSize: 13, color: "#64748b", textAlign: "center", fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>You're all caught up!</div>}
       </div>
     </>
   );
@@ -69,17 +70,17 @@ function UrgentContent({ boards }) {
   }));
   return (
     <>
-      <div style={{ background: "#fff1f2", padding: "12px 16px", borderBottom: "1px solid #ffe4e6" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#e11d48", textTransform: "uppercase", letterSpacing: "0.5px" }}>Requires Attention</div>
+      <div style={{ background: "#fff1f2", padding: "14px 18px", borderBottom: "1px solid #ffe4e6" }}>
+        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 600, color: "#e11d48", textTransform: "uppercase", letterSpacing: "0.5px" }}>Requires Attention</div>
       </div>
-      <div style={{ padding: "8px" }}>
-        {tasks.slice(0, 5).map((t, i) => (
-          <div key={i} style={{ padding: "8px 12px", borderRadius: 6, transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#fff1f2"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
-            <div style={{ fontSize: 11, color: "#e11d48", fontWeight: 700, marginTop: 4 }}>Due: {new Date(t.dueDate).toLocaleDateString()}</div>
+      <div style={{ padding: "10px", maxHeight: 240, overflowY: "auto", fontFamily: "'Inter', sans-serif" }}>
+        {tasks.map((t, i) => (
+          <div key={i} style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 6, transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#fff1f2"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: "1.4" }}>{t.text}</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#e11d48", fontWeight: 600, marginTop: 4 }}>Due: {new Date(t.dueDate).toLocaleDateString()}</div>
           </div>
         ))}
-        {tasks.length === 0 && <div style={{ padding: "12px", fontSize: 13, color: "#64748b", textAlign: "center" }}>No urgent items!</div>}
+        {tasks.length === 0 && <div style={{ padding: "16px", fontSize: 13, color: "#64748b", textAlign: "center", fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>No urgent items!</div>}
       </div>
     </>
   );
@@ -105,8 +106,8 @@ function StatCard({ icon, bg, title, value, onEnter, onLeave, showPopover, popov
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ width: 48, height: 48, borderRadius: 12, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>{title}</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#0f172a" }}>{value}</div>
+          <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{title}</div>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 32, fontWeight: 700, color: "#0f172a" }}>{value}</div>
         </div>
       </div>
       {showPopover && <StatPopover type={popoverType} boards={boards} userEmail={userEmail} />}

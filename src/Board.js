@@ -37,7 +37,7 @@ function useBoardInfo(boardId) {
     if (!boardId) return;
     return onValue(ref(db, `boards/${boardId}/info`), snap => {
       if (snap.exists()) setBoardInfo(snap.val());
-      else setBoardInfo(null); // CRITICAL FIX: Clear state if empty
+      else setBoardInfo(null);
     });
   }, [boardId]);
   return boardInfo;
@@ -49,7 +49,7 @@ function useActivities(boardId) {
     if (!boardId) return;
     return onValue(ref(db, `boards/${boardId}/activity`), snap => {
       if (snap.exists()) setActivities(Object.values(snap.val()));
-      else setActivities([]); // CRITICAL FIX: Clear state if empty
+      else setActivities([]);
     });
   }, [boardId]);
   return activities;
@@ -76,7 +76,7 @@ function useDbUser(uid) {
     const userProfileRef = ref(db, `users/${uid}`);
     return onValue(userProfileRef, (snap) => {
       if (snap.exists()) setDbUser(snap.val());
-      else setDbUser(null); // CRITICAL FIX: Clears previous user's data on logout
+      else setDbUser(null);
     });
   }, [uid]);
   return dbUser;
@@ -245,7 +245,7 @@ function BoardNav({
         </button>
         <div style={{ width: 1, height: 28, background: "#334155" }} />
         <div style={{ minWidth: "max-content" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "white", letterSpacing: "-0.3px" }}>{boardInfo?.name || "Task 1"}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "white", letterSpacing: "-0.5px" }}>{boardInfo?.name || "Task 1"}</div>
           <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2, fontWeight: 500 }}>
             {Object.values(data.cards || {}).length} cards · {(boardInfo?.members || []).length} members
           </div>
@@ -314,14 +314,39 @@ function FilterSummary({ hasFilter, data, filteredCardIds }) {
   );
 }
 
+function GlobalStyles() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap');
+      
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #f8fafc; 
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      @keyframes popIn { from { opacity: 0; transform: scale(0.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      .board-root { opacity: 0; transition: opacity 0.4s ease; }
+      .board-root.mounted { opacity: 1; }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; border: 2px solid #f8fafc; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    `}</style>
+  );
+}
+
 function ColumnHeader({ column, cc, hasFilter, visibleCount, totalCount }) {
   return (
     <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(15, 23, 42, 0.04)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 12, height: 12, borderRadius: "50%", background: cc.theme }} />
-        <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{column.title}</span>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 16, fontWeight: 600, color: "#0f172a" }}>
+          {column.title}
+        </span>
       </div>
-      <span style={{ fontSize: 13, fontWeight: 700, padding: "4px 10px", borderRadius: 20, background: "white", color: "#64748b", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+      <span style={{ fontSize: 13, fontWeight: 600, padding: "4px 10px", borderRadius: 20, background: "white", color: "#64748b", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
         {hasFilter ? `${visibleCount}/${totalCount}` : totalCount}
       </span>
     </div>
@@ -331,7 +356,10 @@ function ColumnHeader({ column, cc, hasFilter, visibleCount, totalCount }) {
 function BoardColumn({ colId, column, cc, cards, hasFilter, onDelete, onEdit, onOpen, onAddCard, memberProfiles }) {
   return (
     <div style={{
-      width: 320, flexShrink: 0, background: cc.bg, borderRadius: 12, borderTop: `4px solid ${cc.theme}`, boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.05)", display: "flex", flexDirection: "column"
+      width: 320, flexShrink: 0, background: cc.bg, borderRadius: 12, 
+      borderTop: `3px solid ${cc.theme}`, 
+      boxShadow: "0 1px 2px rgba(0,0,0,0.02), inset 0 0 0 1px rgba(15, 23, 42, 0.05)", 
+      display: "flex", flexDirection: "column"
     }}>
       <ColumnHeader column={column} cc={cc} hasFilter={hasFilter} visibleCount={cards.length} totalCount={column.cardIds.length} />
 
@@ -367,34 +395,12 @@ function BoardColumn({ colId, column, cc, cards, hasFilter, onDelete, onEdit, on
 
 function LoadingScreen() {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", background: "#f8fafc" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter',sans-serif", background: "#f8fafc" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 48, height: 48, border: "4px solid #cbd5e1", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
         <div style={{ fontSize: 16, color: "#64748b", fontWeight: 500 }}>Loading workspace...</div>
       </div>
     </div>
-  );
-}
-
-function GlobalStyles() {
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { 
-        font-family: 'Plus Jakarta Sans', sans-serif; 
-        background-color: #f8fafc; 
-      }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
-      @keyframes popIn { from { opacity: 0; transform: scale(0.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-      .board-root { opacity: 0; transition: opacity 0.4s ease; }
-      .board-root.mounted { opacity: 1; }
-      ::-webkit-scrollbar { width: 8px; height: 8px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; border: 2px solid #f8fafc; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    `}</style>
   );
 }
 

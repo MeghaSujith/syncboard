@@ -135,11 +135,15 @@ function DeleteButton({ onDelete, cardId }) {
 function getCardStyle(snapshot, hovered, draggableStyle) {
   return {
     userSelect: "none", borderRadius: 10, marginBottom: 12, background: "white",
-    border: `1px solid ${snapshot.isDragging ? ACCENT : hovered ? "#cbd5e1" : "#ffffff"}`,
-    boxShadow: snapshot.isDragging ? "0 20px 40px -8px rgba(0,0,0,0.18), 0 0 0 1px rgba(13,148,136,0.3)" : hovered ? "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)" : "0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)",
+    border: `1px solid ${snapshot.isDragging ? ACCENT : hovered ? "#cbd5e1" : "#e2e8f0"}`,
+    boxShadow: snapshot.isDragging 
+      ? "0 20px 40px -8px rgba(0,0,0,0.18), 0 0 0 1px rgba(13,148,136,0.3)" 
+      : hovered 
+        ? "0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04)" 
+        : "0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04)",
     cursor: snapshot.isDragging ? "grabbing" : "pointer",
     transition: snapshot.isDragging ? "none" : "box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease",
-    transform: hovered && !snapshot.isDragging ? "translateY(-1px)" : "none",
+    transform: hovered && !snapshot.isDragging ? "translateY(-2px)" : "none",
     ...(snapshot.isDragging ? { zIndex: 9999, position: "relative" } : {}),
     ...draggableStyle, overflow: "hidden",
   };
@@ -159,9 +163,21 @@ export default function CardItem({ card, onDelete, onEdit, onOpen, index, colCol
               <CardLabels labels={labels} />
               <PriorityBadge priority={priority} />
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", lineHeight: 1.55, marginBottom: 14, paddingRight: hovered ? 28 : 0, transition: "padding-right 0.15s" }}>
+            
+            {/* THIS IS THE UPDATED TEXT BLOCK (fontWeight changed to 400) */}
+            <div style={{ 
+              fontFamily: "'Inter', sans-serif", 
+              fontSize: 14, 
+              fontWeight: 400, 
+              color: "#334155", 
+              lineHeight: 1.55, 
+              marginBottom: 14, 
+              paddingRight: hovered ? 28 : 0, 
+              transition: "padding-right 0.15s" 
+            }}>
               {card.text}
             </div>
+
           </div>
           <CardFooter card={card} colId={colId} memberProfiles={memberProfiles} />
           {hovered && <DeleteButton onDelete={onDelete} cardId={card.id} />}

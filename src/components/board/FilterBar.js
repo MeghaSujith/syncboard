@@ -25,7 +25,8 @@ function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssig
     <div style={{ 
       display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", 
       padding: "16px 32px", background: "white", 
-      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.03)" 
+      borderBottom: "1px solid #e2e8f0", // Tweak 4: Added bottom border
+      boxShadow: "0 4px 12px -4px rgba(0,0,0,0.03)" // Smoothed out shadow
     }}>
       <div style={{ position: "relative", flex: "1 1 250px", minWidth: 200 }}>
         <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: 14 }}>🔍</span>
@@ -63,11 +64,9 @@ function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssig
               let displayName = a;
 
               if (memberProfiles) {
-                // 1. Check for exact match
                 if (memberProfiles[a]?.name) {
                   displayName = memberProfiles[a].name;
                 } else {
-                  // 2. Check for prefix match (e.g. girisankar472 matching girisankar472@gmail.com)
                   const matchingEmail = Object.keys(memberProfiles).find(email => 
                     email.startsWith(a) || email.split('@')[0] === a
                   );
@@ -75,13 +74,11 @@ function FilterBar({ search, setSearch, filterLabel, setFilterLabel, filterAssig
                   if (matchingEmail && memberProfiles[matchingEmail]?.name) {
                     displayName = memberProfiles[matchingEmail].name;
                   } else {
-                    // 3. Fallback: strip numbers and capitalize first letter
                     const cleanName = a.replace(/[0-9]/g, '');
                     displayName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
                   }
                 }
               } else {
-                 // Absolute fallback if memberProfiles isn't loaded
                  const cleanName = a.replace(/[0-9]/g, '');
                  displayName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
               }
