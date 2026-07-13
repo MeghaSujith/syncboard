@@ -14,6 +14,7 @@ import CardItem from "./components/board/CardItem";
 import AddCardForm from "./components/board/AddCardForm";
 import FilterBar from "./components/board/FilterBar";
 import NotificationBell from "./components/board/NotificationBell";
+import SidebarDock from "./components/board/SidebarDock";
 import { ACCENT, COLUMN_COLORS, defaultColumns, getInitials, fixData, BOARD_BACKGROUNDS } from "./utils/boardHelpers";
 
 // ── Custom hooks for data subscriptions ────────────────────────────────────
@@ -226,8 +227,7 @@ function UserBadge({ hasCustomPhoto, displayPhoto, displayName }) {
 
 function BoardNav({
   boardInfo, data, user, dbUser, isTeamLead, sendingDigest, onSendDigest,
-  showChat, setShowChat, setShowAnalytics, showActivity, setShowActivity,
-  notifications, onClearNotifications, onLogout, onBack, onInvite, onSettings,
+  notifications, onLogout, onBack, onInvite,
   displayName, displayPhoto, hasCustomPhoto, boardId
 }) {
   return (
@@ -258,32 +258,6 @@ function BoardNav({
         </div>
 
         <DigestButton isTeamLead={isTeamLead} sendingDigest={sendingDigest} onClick={onSendDigest} />
-
-        <button title="Analytics" onClick={() => setShowAnalytics(true)} style={{
-          width: 38, height: 38, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
-        }} onMouseEnter={e => e.currentTarget.style.background = "#334155"} onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}>
-          📊
-        </button>
-
-        <button title="Team Chat" onClick={() => { setShowChat(s => !s); setShowActivity(false); }} style={{
-          width: 38, height: 38, background: showChat ? "#0d9488" : "#1e293b", color: showChat ? "white" : "#e2e8f0", border: showChat ? "none" : "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
-        }}>
-          💬
-        </button>
-
-        <button title="Activity Log" onClick={() => { setShowActivity(s => !s); setShowChat(false); }} style={{
-          width: 38, height: 38, background: showActivity ? "#0d9488" : "#1e293b", color: showActivity ? "white" : "#e2e8f0", border: showActivity ? "none" : "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
-        }}>
-          📋
-        </button>
-
-        <NotificationBell notifications={notifications} onClear={onClearNotifications} />
-
-        <button title="Board Settings" onClick={onSettings} style={{
-          width: 38, height: 38, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s", marginLeft: 8
-        }} onMouseEnter={e => e.currentTarget.style.background = "#334155"} onMouseLeave={e => e.currentTarget.style.background = "#1e293b"}>
-          ⚙️
-        </button>
 
         <button onClick={onInvite} style={{
           padding: "8px 16px", background: ACCENT, color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, marginLeft: 8, boxShadow: "0 4px 6px rgba(13, 148, 136, 0.3)"
@@ -356,7 +330,7 @@ function ColumnHeader({ column, cc, hasFilter, visibleCount, totalCount }) {
 function BoardColumn({ colId, column, cc, cards, hasFilter, onDelete, onEdit, onOpen, onAddCard, memberProfiles }) {
   return (
     <div style={{
-      width: 320, flexShrink: 0, background: cc.bg, borderRadius: 12, 
+      width: 310, flexShrink: 0, background: cc.bg, borderRadius: 12, 
       borderTop: `3px solid ${cc.theme}`, 
       boxShadow: "0 1px 2px rgba(0,0,0,0.02), inset 0 0 0 1px rgba(15, 23, 42, 0.05)", 
       display: "flex", flexDirection: "column"
@@ -554,11 +528,8 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
         <BoardNav
           boardInfo={boardInfo} data={data} user={user} dbUser={dbUser} isTeamLead={isTeamLead}
           sendingDigest={sendingDigest} onSendDigest={handleSendDigest}
-          showChat={showChat} setShowChat={setShowChat} setShowAnalytics={setShowAnalytics}
-          showActivity={showActivity} setShowActivity={setShowActivity}
-          notifications={notifications} onClearNotifications={handleClearNotifications}
+          notifications={notifications}
           onLogout={onLogout} onBack={onBack} onInvite={() => setShowInvite(true)}
-          onSettings={() => setShowSettings(true)}
           displayName={displayName} displayPhoto={displayPhoto} hasCustomPhoto={hasCustomPhoto}
           boardId={boardId}
         />
@@ -569,7 +540,7 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
           allAssignees={allAssignees} memberProfiles={memberProfiles} onClear={handleClearFilters}
         />
 
-        <div style={{ flex: 1, overflowX: "auto", padding: "40px 32px" }}>
+        <div style={{ flex: 1, overflowX: "auto", padding: "40px 100px 40px 32px" }}>
           <FilterSummary hasFilter={hasFilter} data={data} filteredCardIds={filteredCardIds} />
 
           <DragDropContext onDragEnd={onDragEnd}>
@@ -607,6 +578,14 @@ export default function Board({ user, userRole, boardId, onLogout, onBack }) {
           />
         )}
       </div>
+
+      <SidebarDock
+        showChat={showChat} setShowChat={setShowChat}
+        showActivity={showActivity} setShowActivity={setShowActivity}
+        setShowAnalytics={setShowAnalytics}
+        setShowSettings={() => setShowSettings(true)}
+        notifications={notifications} onClearNotifications={handleClearNotifications}
+      />
 
       {showActivity && <ActivityFeed activities={activities} memberProfiles={memberProfiles} onClose={() => setShowActivity(false)} />}
       {showChat && <ChatFeed boardId={boardId} user={user} userRole={userRole} members={boardInfo?.members || []} onClose={() => setShowChat(false)} />}
