@@ -73,6 +73,30 @@ export const BOARD_GRADIENTS = [
   "linear-gradient(135deg, #0d9488, #10b981)",
 ];
 
+export const AVATAR_COLORS = [
+  "#0d9488", // teal
+  "#6366f1", // indigo
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#8b5cf6", // violet
+  "#0ea5e9", // sky
+  "#10b981", // emerald
+  "#ec4899", // pink
+];
+
+// Deterministic color per person: the same email always maps to the same
+// color, everywhere it's rendered — so "M" for Megha looks identical on
+// every board card and in the top-nav, instead of every avatar defaulting
+// to the same shade of teal.
+export function getAvatarColor(identifier) {
+  if (!identifier) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < identifier.length; i++) {
+    hash = identifier.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export function getInitials(nameStr) {
   if (!nameStr) return "??";
   if (nameStr.includes("@")) return nameStr.charAt(0).toUpperCase();
