@@ -53,6 +53,22 @@ const getAssignmentEmailHtml = (cardTitle, cardDescription, priorityEmoji, dueDa
   </div>
 `;
 
+// ---------------------------------------------------------------------------
+// /api/digest
+//
+// Previously: exec() ran synchronously in the request callback, so the
+// frontend button sat "stuck" for the full duration of the Python script
+// (interpreter startup + firebase_admin import + DB read + every email
+// send) before getting any response at all.
+//
+// Now: the request responds immediately (202 Accepted) once the script
+// has been *launched*, and the digest continues running in the
+// background. The frontend should treat this as "queued", not "done" —
+// see the matching frontend note below the route.
+//
+// A hard timeout is also added so a hung Python process (e.g. a stuck
+// Firebase auth call) can't silently run forever without anyone noticing.
+// ---------------------------------------------------------------------------
 app.post("/api/digest", (req, res) => {
   const { boardId, boardName } = req.body;
   if (!boardId) return res.status(400).json({ error: "Board ID is required" });
@@ -60,12 +76,24 @@ app.post("/api/digest", (req, res) => {
   const scriptPath = path.join(__dirname, "digest.py");
   const command = `python "${scriptPath}" --board ${boardId}`;
 
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      return res.status(500).json({ error: stderr || "Failed to run digest" });
+  // Respond immediately — don't make the user's click wait on the
+  // Python process (interpreter startup + Firebase + email sends).
+  res.status(202).json({ message: `Digest for ${boardName} has been queued.` });
+
+  const startedAt = Date.now();
+  exec(
+    command,
+    { timeout: 60_000, maxBuffer: 1024 * 1024 * 5 }, // 60s safety timeout, 5MB output buffer
+    (error, stdout, stderr) => {
+      const elapsedMs = Date.now() - startedAt;
+      if (error) {
+        console.error(`[digest] board=${boardId} failed after ${elapsedMs}ms:`, stderr || error.message);
+        return;
+      }
+      console.log(`[digest] board=${boardId} completed in ${elapsedMs}ms`);
+      if (stdout) console.log(stdout);
     }
-    res.json({ message: `Digest for ${boardName} processed!`, output: stdout });
-  });
+  );
 });
 
 app.post("/api/assign", async (req, res) => {
@@ -94,7 +122,7 @@ app.post("/api/assign", async (req, res) => {
 });
 
 app.get("/test", (req, res) => {
-  res.json({ 
+  res.json({
     emailUser: process.env.EMAIL_USER ? "✅ set" : "❌ missing",
     emailPass: process.env.EMAIL_PASS ? "✅ set" : "❌ missing"
   });
